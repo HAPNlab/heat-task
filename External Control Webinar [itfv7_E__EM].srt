@@ -1,0 +1,1048 @@
+1
+00:00:10,080 --> 00:00:12,900
+Hello and welcome to our external control,
+
+2
+00:00:13,520 --> 00:00:17,200
+integrated thermal stimuli in the flow of your experiment webinar.
+
+3
+00:00:18,120 --> 00:00:22,380
+The webinar will be presented by Gilad Balvilay, Medox R&D manager.
+
+4
+00:00:23,460 --> 00:00:26,440
+Thank you, Delia. Hello everyone.
+
+5
+00:00:26,520 --> 00:00:29,560
+Good morning, good evening, wherever you may be in the world.
+
+6
+00:00:31,020 --> 00:00:32,660
+Let me just bring up the presentation.
+
+7
+00:00:33,540 --> 00:00:42,160
+So today we'll be talking about external control, which is a software feature of MMS, the MEDOC
+
+8
+00:00:42,210 --> 00:00:43,260
+main station software.
+
+9
+00:00:44,260 --> 00:00:50,600
+And we'll be focusing on working using the TSA2, our new device.
+
+10
+00:00:52,340 --> 00:00:56,900
+TSA2 is a thermal stimulator for those who aren't familiar with it.
+
+11
+00:00:58,140 --> 00:01:06,260
+used in various applications in clinical work and also in research and today the
+
+12
+00:01:06,600 --> 00:01:12,460
+application is that we'll be talking about is more focused on research users
+
+13
+00:01:12,730 --> 00:01:20,460
+who wants to have a multi-modal kind of setup which we'll be talking about. The
+
+14
+00:01:20,500 --> 00:01:25,100
+TSA2 is used typically for QST.
+
+15
+00:01:25,290 --> 00:01:30,960
+It has various thermodes which you can mix and match with the system.
+
+16
+00:01:30,990 --> 00:01:35,480
+We have some upcoming new thermodes that you can see at the bottom here.
+
+17
+00:01:37,800 --> 00:01:42,040
+As I said, it's a device that you can add thermodes to.
+
+18
+00:01:42,040 --> 00:01:43,260
+You can have two thermodes.
+
+19
+00:01:43,470 --> 00:01:45,800
+You can have connectivity with other devices.
+
+20
+00:01:46,680 --> 00:01:49,520
+And it's easily upgradable.
+
+21
+00:01:50,540 --> 00:01:59,980
+So, external control is basically a way to connect from an external software, external
+
+22
+00:02:00,240 --> 00:02:06,920
+code basically, which I'll show you later, to the MMS and it's intended to allow you
+
+23
+00:02:06,920 --> 00:02:08,700
+to synchronize various devices together.
+
+24
+00:02:09,080 --> 00:02:16,720
+So if you have a few types of stimulation devices such as visual stimulation, auditory
+
+25
+00:02:16,740 --> 00:02:20,580
+stimulators and of course thermal stimulators then you can combine that
+
+26
+00:02:20,800 --> 00:02:27,060
+with an experimental setup that includes recording devices such as an MRI scan
+
+27
+00:02:27,120 --> 00:02:38,440
+or ECG nerve control sorry nerve conduction and combine that in a setup
+
+28
+00:02:38,720 --> 00:02:42,520
+that allows you to synchronize all the inputs and outputs together in a
+
+29
+00:02:42,360 --> 00:02:43,460
+centralized way.
+
+30
+00:02:44,680 --> 00:02:49,780
+So we typically know of users who are using MATLAB or Python
+
+31
+00:02:50,280 --> 00:02:52,600
+or V Prime, LabVIEW, et cetera.
+
+32
+00:02:52,960 --> 00:02:55,380
+So it's any kind of third party code
+
+33
+00:02:55,420 --> 00:03:03,400
+that you can connect to the system and send commands
+
+34
+00:03:04,520 --> 00:03:08,600
+in an 8-bit word, basically, which I'll show you later.
+
+35
+00:03:10,960 --> 00:03:15,280
+And the way it works is it works by having a centralized computer
+
+36
+00:03:16,620 --> 00:03:20,900
+that could have the MMS installed on it,
+
+37
+00:03:21,080 --> 00:03:24,260
+connected via USB to the TSA2.
+
+38
+00:03:25,440 --> 00:03:28,040
+And your code could sit on the same computer.
+
+39
+00:03:28,760 --> 00:03:31,800
+And then the way it works is it sends the commands
+
+40
+00:03:32,120 --> 00:03:35,080
+through the network card, and then you
+
+41
+00:03:35,000 --> 00:03:41,080
+connect to via the local host.
+
+42
+00:03:42,000 --> 00:03:45,980
+And through that, through this code,
+
+43
+00:03:45,980 --> 00:03:49,940
+you can control the MMS and also control other devices,
+
+44
+00:03:50,260 --> 00:03:52,240
+such as an MRI scanner, EEG, et cetera,
+
+45
+00:03:54,720 --> 00:03:59,080
+and combine a more sophisticated experimental setup.
+
+46
+00:04:00,260 --> 00:04:04,960
+Another option is to have the same kind of code
+
+47
+00:04:04,980 --> 00:04:12,780
+and then connect to another computer running MMS over a network and this
+
+48
+00:04:12,840 --> 00:04:20,739
+allows you some more flexibility. Okay so how does this all work? So the external
+
+49
+00:04:20,880 --> 00:04:27,040
+control feature in MMS has two stages, two main stages. One stage is the setup
+
+50
+00:04:27,340 --> 00:04:34,160
+stage and the other stage is the actual listening mode stage which is at the
+
+51
+00:04:34,020 --> 00:04:43,560
+bottom here. So just as a side comment, in the past, pathway users had this
+
+52
+00:04:43,710 --> 00:04:51,280
+feature with an LPT serial port or parallel port, sorry, which required some
+
+53
+00:04:52,140 --> 00:04:57,060
+cable construction and now this is no longer supported and we are only working
+
+54
+00:04:57,080 --> 00:05:06,620
+with TCP/IP. So let's look into detail of the setup stage. So if you're familiar with MMS,
+
+55
+00:05:07,890 --> 00:05:14,600
+you know that we have ramp and hold and limits and various types of temperature profile
+
+56
+00:05:16,800 --> 00:05:23,440
+programs that can be defined. So this is actually the same thing. You create a program that has a
+
+57
+00:05:23,240 --> 00:05:34,340
+ramp and hold or limits or any other kind of program and then you assign a 8-bit word that
+
+58
+00:05:34,520 --> 00:05:41,860
+will be used to activate this command and this is done in the external control settings menu so on
+
+59
+00:05:41,860 --> 00:05:46,920
+the right here in the right pane you can see programs so the program name will be whatever
+
+60
+00:05:47,080 --> 00:05:53,480
+a program test program that you define and the 8-bit word is customized as you as you can
+
+61
+00:05:54,840 --> 00:06:01,340
+as you as you want you can just assign any any set of ones and zeros in an 8-bit word on the
+
+62
+00:06:01,460 --> 00:06:07,220
+left you can see that there are commands that have fixed 8-bit words and they're reserved for those
+
+63
+00:06:07,320 --> 00:06:17,300
+commands. So it's important to say that we have also situations where there are
+
+64
+00:06:17,600 --> 00:06:24,580
+multiple users in the lab or in a facility that is using one TSA and each
+
+65
+00:06:24,730 --> 00:06:30,820
+have their own experimental setup and they can actually save the
+
+66
+00:06:30,880 --> 00:06:36,680
+configuration of those programs, specific programs that are personalized
+
+67
+00:06:36,700 --> 00:06:42,840
+to that experiment, customized to that experiment, and that can be saved as a
+
+68
+00:06:43,060 --> 00:06:47,360
+configuration file and imported/exported, and then there is no interference between
+
+69
+00:06:47,620 --> 00:06:54,920
+different users and they can not interfere with other people's experiments.
+
+70
+00:06:56,280 --> 00:07:06,660
+Note that we have an IP address that is detected automatically over here by the
+
+71
+00:07:06,680 --> 00:07:08,580
+external code to connect.
+
+72
+00:07:11,000 --> 00:07:14,900
+So if you note on the top here, you have this button,
+
+73
+00:07:16,600 --> 00:07:20,780
+this checkbox, which should be used to activate,
+
+74
+00:07:21,000 --> 00:07:21,880
+and I'll show you that.
+
+75
+00:07:22,220 --> 00:07:24,140
+Activate external control, and I'll show you that in a minute.
+
+76
+00:07:26,020 --> 00:07:30,140
+So usually in MMS, we have a test subject or a patient
+
+77
+00:07:30,820 --> 00:07:32,120
+that is defined in MMS.
+
+78
+00:07:35,520 --> 00:07:40,660
+Usually you can define all the patient details within MMS
+
+79
+00:07:40,730 --> 00:07:45,840
+but since this feature is typically interfacing
+
+80
+00:07:45,870 --> 00:07:49,880
+with other devices, it makes sometimes sense
+
+81
+00:07:50,220 --> 00:07:53,480
+to include patient data or test subject data
+
+82
+00:07:53,770 --> 00:07:55,100
+outside in the external code.
+
+83
+00:07:55,470 --> 00:08:00,060
+And you can do that and just call it a test patient,
+
+84
+00:08:01,440 --> 00:08:04,160
+dummy patient that you can just define in MMS
+
+85
+00:08:04,180 --> 00:08:06,700
+and then work like that.
+
+86
+00:08:08,360 --> 00:08:10,820
+Okay, so when you tick the box,
+
+87
+00:08:12,660 --> 00:08:16,200
+MMS will be in listening mode, not just yet,
+
+88
+00:08:16,420 --> 00:08:19,560
+only when we select the patient and we go to test mode.
+
+89
+00:08:19,800 --> 00:08:20,960
+So I'll show you that in a minute.
+
+90
+00:08:22,540 --> 00:08:28,540
+And then we have the actual working part of the code.
+
+91
+00:08:28,760 --> 00:08:32,960
+So the code has a command,
+
+92
+00:08:34,260 --> 00:08:40,740
+set of commands that you can see here and you can start a test, stop a test, call a specific
+
+93
+00:08:41,020 --> 00:08:47,640
+test and there are other options which you can see just here.
+
+94
+00:08:49,520 --> 00:08:57,080
+So for example, once you've selected a test that has a response unit functionality such
+
+95
+00:08:57,180 --> 00:09:05,400
+as limits or search or others a yes response can be simulated by the code and a no response and
+
+96
+00:09:05,400 --> 00:09:12,320
+uh increased temperature decreased temperature as is in vast search so i'll demonstrate that quite
+
+97
+00:09:13,540 --> 00:09:24,359
+promptly um so the the mms is actually uh this sort of server and your stone code is a client
+
+98
+00:09:24,440 --> 00:09:29,980
+and it's sending commands and receiving responses from the mms and you can actually stream out the
+
+99
+00:09:30,120 --> 00:09:38,400
+data test uh the the time uh temperature and any other command that um is defined here any other
+
+100
+00:09:38,520 --> 00:09:45,800
+response that is defined here um it's interesting that there is a ttl output not not the input but
+
+101
+00:09:45,800 --> 00:09:54,340
+the output can be recorded so i'll be showing you how um with the simulated uh f mri that i built
+
+102
+00:09:54,480 --> 00:10:02,720
+I don't know if you can see this. So we made a small jig that will be used to show you how the MRIs
+
+103
+00:10:03,680 --> 00:10:12,400
+or any other external recording device can be synchronized with the MMS. Okay, so I'm gonna now
+
+104
+00:10:12,520 --> 00:10:23,700
+go to MMS. So programs, this is just the default program set and I've defined in
+
+105
+00:10:23,890 --> 00:10:30,240
+settings in tunnel control you can see that I've defined three programs and I
+
+106
+00:10:30,240 --> 00:10:36,760
+can select these programs from any of the programs that are already defined and
+
+107
+00:10:36,860 --> 00:10:42,020
+I've assigned an 8-bit word. So I haven't used any of these, I've defined new ones
+
+108
+00:10:42,380 --> 00:10:49,220
+and we'll be doing ramp and hold, search and vast search. And this is my IP, I've
+
+109
+00:10:49,220 --> 00:10:58,120
+ticked the box. I can export this just to my desktop. So this is a
+
+110
+00:10:58,200 --> 00:11:06,160
+configuration file and this set of programs is now being saved and I can
+
+111
+00:11:06,280 --> 00:11:13,320
+that later. So let's press OK and go to test. So I've just created a dummy
+
+112
+00:11:13,550 --> 00:11:25,520
+patient here and when I will press go to test I will have this window. Now this is
+
+113
+00:11:26,440 --> 00:11:30,080
+the system is now in listening mode and it's waiting for commands. So I'm just
+
+114
+00:11:30,220 --> 00:11:34,700
+gonna close that for a second and show you an application that made in MATLAB.
+
+115
+00:11:35,620 --> 00:11:43,820
+So I've made an example in the app and this is something that you can do in any other software,
+
+116
+00:11:43,950 --> 00:11:46,100
+but just use Matlab for now.
+
+117
+00:11:47,180 --> 00:11:53,280
+So I've created a main function.
+
+118
+00:11:54,630 --> 00:12:04,920
+The main function is just formatting the commands and formatting the responses that I want to use
+
+119
+00:12:04,940 --> 00:12:09,820
+So all of this code package you can get from us,
+
+120
+00:12:10,330 --> 00:12:11,300
+we can send that to you.
+
+121
+00:12:11,820 --> 00:12:14,220
+Just send us an email, and we'll be happy to do that.
+
+122
+00:12:15,960 --> 00:12:18,560
+So I'm showing you now the commands
+
+123
+00:12:19,100 --> 00:12:20,580
+that you've seen in the table previously.
+
+124
+00:12:20,920 --> 00:12:23,480
+So we have 14 commands at the moment.
+
+125
+00:12:24,920 --> 00:12:30,440
+So the status is basically getting a response from the MMS.
+
+126
+00:12:33,320 --> 00:12:39,060
+The command that you define with this zero code is--
+
+127
+00:12:42,720 --> 00:12:46,920
+basically, I've defined a response message that
+
+128
+00:12:47,200 --> 00:12:51,900
+includes the whole output of the response.
+
+129
+00:12:52,920 --> 00:12:55,720
+The response message is a 23-byte word.
+
+130
+00:12:56,360 --> 00:13:02,040
+Maybe I'll try and show you that in a second.
+
+131
+00:13:02,740 --> 00:13:06,620
+So the response is segmented in this way.
+
+132
+00:13:07,760 --> 00:13:10,880
+Basically, you can have the first four bytes
+
+133
+00:13:10,980 --> 00:13:14,020
+are the length of the message, the next four bytes
+
+134
+00:13:14,060 --> 00:13:17,240
+are the timestamp, et cetera, and you can output all of these.
+
+135
+00:13:18,700 --> 00:13:20,660
+But you need to define that.
+
+136
+00:13:21,300 --> 00:13:23,020
+So that's the way we did it here.
+
+137
+00:13:25,920 --> 00:13:26,340
+OK.
+
+138
+00:13:26,880 --> 00:13:32,180
+So in my app here, it's just a few lines of commands
+
+139
+00:13:32,200 --> 00:13:33,860
+that I'm sending and receiving,
+
+140
+00:13:34,180 --> 00:13:37,600
+but you can create any kind of graphical user interface
+
+141
+00:13:37,960 --> 00:13:41,960
+that is customized to your experiment with buttons, et cetera.
+
+142
+00:13:43,120 --> 00:13:45,140
+So you can automate your experiments.
+
+143
+00:13:45,920 --> 00:13:52,480
+So I'm going to now go to listening mode by pressing test.
+
+144
+00:13:52,820 --> 00:13:55,020
+Maybe I'll minimize the window for a second.
+
+145
+00:13:55,690 --> 00:14:00,800
+And I'll put that on the side like so so you can see well.
+
+146
+00:14:02,440 --> 00:14:09,140
+and we'll go to test. So now we're waiting for MATLAB to do something. So I'm just
+
+147
+00:14:09,290 --> 00:14:26,840
+gonna connect quickly, put in this code and I'll send the command and oops that's
+
+148
+00:14:26,860 --> 00:14:34,040
+not what we wanted. So in MATLAB I received already this response which
+
+149
+00:14:34,360 --> 00:14:39,780
+includes the 23-byte message and all of these can be, this means I've connected
+
+150
+00:14:39,960 --> 00:14:49,960
+already, all of these can be outputted and actually streamed. So if I now create
+
+151
+00:14:50,020 --> 00:14:59,360
+this sort of loop that is every 50 milliseconds will output a status command
+
+152
+00:15:00,260 --> 00:15:06,020
+and get a response we can see that the data is being streamed and you can see
+
+153
+00:15:06,020 --> 00:15:12,060
+the temperature is being changed in real time in time of course and you can also
+
+154
+00:15:12,220 --> 00:15:19,120
+record this and output it to any kind of file according to file so while that's
+
+155
+00:15:19,120 --> 00:15:29,460
+doing that, I'm going to bring up the MMS and send a command that will start. I'm using
+
+156
+00:15:29,620 --> 00:15:37,140
+command number one and the first parameter is the 8-bit word for the ramp and hold. So
+
+157
+00:15:37,220 --> 00:15:43,620
+I'll do that. Am I connected? I think it's running so I have to stop it.
+
+158
+00:15:51,900 --> 00:15:54,940
+So let's do this.
+
+159
+00:15:58,900 --> 00:16:08,520
+And the reason I had to stop it is because I was taking up the sending simultaneous commands
+
+160
+00:16:08,640 --> 00:16:17,300
+and that would slow, that would, I would need to interrupt the command that's already running.
+
+161
+00:16:18,040 --> 00:16:24,380
+So let's start the test. So command number two is start test, retest, and start test.
+
+162
+00:16:27,100 --> 00:16:31,260
+And now I'm waiting for a trigger. So I'm going to hold up my
+
+163
+00:16:34,000 --> 00:16:38,780
+TTL box or MRI box and send the trigger command which is
+
+164
+00:16:43,400 --> 00:16:52,640
+this command number four and I don't know if you can see this every time you see a dot or an
+
+165
+00:16:52,920 --> 00:16:58,539
+asterisk on the screen it's outputting a TTL out command and that can also be seen in this
+
+166
+00:16:59,760 --> 00:17:04,720
+light being led light being shown
+
+167
+00:17:08,040 --> 00:17:15,420
+yeah you can see this i hope i hope you can see that so um i've just defined a few um
+
+168
+00:17:17,560 --> 00:17:25,899
+few points the the start of the of the rise the duration of set a temperature event here
+
+169
+00:17:25,980 --> 00:17:27,439
+the end of duration, et cetera.
+
+170
+00:17:27,579 --> 00:17:30,660
+So you can define any point on the graph
+
+171
+00:17:30,900 --> 00:17:31,860
+that can serve as a reference.
+
+172
+00:17:34,860 --> 00:17:36,860
+Just to comment, when you load a test,
+
+173
+00:17:37,460 --> 00:17:40,200
+so I selected this command,
+
+174
+00:17:40,620 --> 00:17:43,380
+it takes a few seconds, about five seconds
+
+175
+00:17:43,660 --> 00:17:45,120
+for MMS to load that.
+
+176
+00:17:45,700 --> 00:17:47,980
+And after that, the latency, the time it takes
+
+177
+00:17:48,220 --> 00:17:50,780
+for messages to go across should be around
+
+178
+00:17:52,880 --> 00:17:55,880
+10, 20 milliseconds, depending on your net
+
+179
+00:17:55,900 --> 00:18:06,700
+connection. Okay so I'm gonna stop this test. You can also pause it before if you want.
+
+180
+00:18:09,240 --> 00:18:18,080
+Stop the test. Now let's load another program, Search. Search is a program
+
+181
+00:18:18,320 --> 00:18:24,840
+usually used for identifying a certain temperature point. For example we've seen
+
+182
+00:18:24,780 --> 00:18:36,460
+I mean users have a sort of tonic temporal summation method which is the patient needs
+
+183
+00:18:36,460 --> 00:18:43,860
+to press the yes or no buttons to maintain a certain pain level and you see that the
+
+184
+00:18:43,890 --> 00:18:45,040
+graph looks quite interesting.
+
+185
+00:18:45,110 --> 00:18:49,580
+It actually, you see where habituation is happening, etc.
+
+186
+00:18:49,860 --> 00:18:54,760
+So it's quite a useful modality, useful program.
+
+187
+00:18:55,820 --> 00:18:56,960
+So I've selected that.
+
+188
+00:18:57,120 --> 00:18:58,140
+Let's start it.
+
+189
+00:18:59,860 --> 00:19:06,360
+And this test program can be used with the response unit.
+
+190
+00:19:06,410 --> 00:19:13,080
+So I'm just going to wait for it to reach the destination
+
+191
+00:19:13,460 --> 00:19:13,720
+temperature.
+
+192
+00:19:13,830 --> 00:19:18,400
+And now I'm going to start to press yes and then press no.
+
+193
+00:19:19,980 --> 00:19:26,620
+Press yes again, create this sort of interesting profile that can be predefined in your code.
+
+194
+00:19:28,280 --> 00:19:35,180
+So now after pressing no, it will continue to decrease until I release the response unit,
+
+195
+00:19:35,330 --> 00:19:39,560
+the virtual response unit button, which is key up, key up command, and then you can see
+
+196
+00:19:39,560 --> 00:19:40,420
+that it can stabilize.
+
+197
+00:19:41,260 --> 00:19:42,560
+And I can raise it up again.
+
+198
+00:19:43,700 --> 00:19:46,700
+And now it's returning to baseline.
+
+199
+00:19:47,740 --> 00:20:01,020
+So between this point and this point is the duration that I defined within MMS for search.
+
+200
+00:20:02,040 --> 00:20:10,120
+So you can actually increase that time as you like and then create the profile within that
+
+201
+00:20:10,260 --> 00:20:10,720
+time frame.
+
+202
+00:20:12,460 --> 00:20:19,420
+So let's now stop the test and go to the next program, which is VASC search.
+
+203
+00:20:20,720 --> 00:20:31,540
+VASC search is a program used usually to go to a certain temperature and ask the patient
+
+204
+00:20:32,020 --> 00:20:37,240
+what their pain level is and then sort of zero in on what temperature, what the threshold
+
+205
+00:20:37,260 --> 00:20:40,820
+temperature for pane 60 or any other criterion.
+
+206
+00:20:43,250 --> 00:20:44,820
+So let's start this test.
+
+207
+00:20:48,679 --> 00:20:51,200
+Starting, so this is a triggered program.
+
+208
+00:20:52,360 --> 00:20:53,180
+So I'm gonna trigger it.
+
+209
+00:20:53,680 --> 00:20:58,020
+And then it's asking me what the step size for the next,
+
+210
+00:20:58,860 --> 00:20:59,360
+next,
+
+211
+00:21:02,460 --> 00:21:06,120
+so I'm gonna increase temp by 500, meaning five degrees.
+
+212
+00:21:09,220 --> 00:21:18,020
+So 500 here is actually multiplied by 100, the actual temperature, and then you can have
+
+213
+00:21:18,050 --> 00:21:21,700
+a 0.01 precision within external control.
+
+214
+00:21:22,430 --> 00:21:25,320
+So the next temperature I'm going to decrease by 10.
+
+215
+00:21:31,220 --> 00:21:32,040
+Let's trigger that.
+
+216
+00:21:34,040 --> 00:21:36,820
+I decreased it by 1000, meaning 10.
+
+217
+00:21:36,990 --> 00:21:38,860
+And you can see that it's dropped from--
+
+218
+00:21:39,730 --> 00:21:42,160
+what is this, around 38 to 28.
+
+219
+00:21:43,780 --> 00:21:47,260
+The next time, I'm going to increase temp back by 5.
+
+220
+00:21:49,160 --> 00:21:50,500
+And trigger that.
+
+221
+00:21:52,160 --> 00:21:55,520
+And then you can have this kind of profile,
+
+222
+00:21:55,700 --> 00:21:57,700
+which is selecting different thresholds
+
+223
+00:21:57,700 --> 00:21:59,580
+in different situations.
+
+224
+00:22:02,360 --> 00:22:05,760
+Of course, pain rating can also be added.
+
+225
+00:22:06,620 --> 00:22:08,520
+There are more commands, such as next sequence,
+
+226
+00:22:09,200 --> 00:22:11,040
+and you can play around with that.
+
+227
+00:22:14,440 --> 00:22:15,960
+Let's stop the test.
+
+228
+00:22:18,200 --> 00:22:22,840
+And this is actually the end of that demonstration.
+
+229
+00:22:23,290 --> 00:22:25,540
+So I'm going to go back to my presentation now.
+
+230
+00:22:26,450 --> 00:22:27,940
+And please, if you have any questions,
+
+231
+00:22:28,110 --> 00:22:29,380
+I'll be happy to answer at the end.
+
+232
+00:22:33,000 --> 00:22:34,520
+When is this useful?
+
+233
+00:22:34,920 --> 00:22:41,900
+So when you're combining visual stimulation with a painful or non-painful thermal stimulation.
+
+234
+00:22:42,280 --> 00:22:50,820
+For example, there was an experiment where the experimenter was wearing a white coat and
+
+235
+00:22:50,960 --> 00:22:52,700
+showed the patient's green screen.
+
+236
+00:22:53,880 --> 00:23:01,220
+And when the green screen is shown, the patient is told that they will receive non-painful
+
+237
+00:23:01,240 --> 00:23:07,000
+stimulation and when the screen is red, they will receive a painful stimulation.
+
+238
+00:23:08,620 --> 00:23:14,480
+And this is an example of when you have...
+
+239
+00:23:15,880 --> 00:23:25,040
+You can use placebos, nacebos, shams, etc., which are helping you to conduct psychological
+
+240
+00:23:25,240 --> 00:23:26,300
+and pain experiments.
+
+241
+00:23:28,780 --> 00:23:43,540
+The advantage here is when you want to have an experiment that has a double blind definition,
+
+242
+00:23:45,740 --> 00:23:56,540
+The way to do that, if you would not have this automation feature within the code, is
+
+243
+00:23:56,540 --> 00:24:01,460
+that you would need to press buttons, and then you lose sort of the double blind.
+
+244
+00:24:01,860 --> 00:24:07,580
+The experimenter is not blinded because he has to activate things based on what is the
+
+245
+00:24:07,780 --> 00:24:10,500
+next stimulus based on what is going to happen.
+
+246
+00:24:11,800 --> 00:24:18,480
+It is possible to do randomized testing inside MMS, but this just makes it a bit more automated
+
+247
+00:24:18,620 --> 00:24:19,340
+and comfortable.
+
+248
+00:24:22,620 --> 00:24:27,260
+Okay, now this is just a few examples of papers.
+
+249
+00:24:29,550 --> 00:24:32,740
+And I think now we'll be ready to take your questions.
+
+250
+00:24:34,160 --> 00:24:37,480
+So let's go back to...
+
+251
+00:24:39,600 --> 00:24:40,660
+Stop sharing.
+
+252
+00:24:43,060 --> 00:24:46,160
+And let's see if we have any questions and no we don't have any questions.
+
+253
+00:24:49,020 --> 00:25:02,860
+Okay so just to sum up we have an email info@medoc-web.com which you are free to
+
+254
+00:25:03,620 --> 00:25:10,520
+contact us and oh we have a question so you're free to contact us and then we
+
+255
+00:25:10,540 --> 00:25:15,700
+We can send you the example code and any other questions you may have and help with your
+
+256
+00:25:16,040 --> 00:25:17,480
+experiment and help with the code.
+
+257
+00:25:17,780 --> 00:25:19,140
+We'll be happy to do that.
+
+258
+00:25:20,520 --> 00:25:22,800
+We have a question, can this function be used on pathway?
+
+259
+00:25:22,920 --> 00:25:24,260
+Yes, it can.
+
+260
+00:25:25,160 --> 00:25:30,500
+Actually I think started on pathway and the TSA2 is slowly replacing the pathway in terms
+
+261
+00:25:30,540 --> 00:25:38,400
+of the device that is mainly used for research and yes it can.
+
+262
+00:25:41,880 --> 00:25:46,920
+Okay, so thank you very much. Thank you for your time and we'll be in touch.
+
