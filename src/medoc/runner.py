@@ -1,90 +1,78 @@
-"""Runs a parsed Medoc experiment through MMS external control."""
+"""Runs a parsed Medoc experiment through the TSA2 serial API."""
 
 from __future__ import annotations
 
 import logging
 import time
 
-from medoc.client import MedocClient
 from medoc.experiment import Experiment, ThermodeProgram
-from medoc.models import TestState
+from medoc.serial.enums import SystemState
 
 logger = logging.getLogger(__name__)
 
-_TERMINAL_STATES = {TestState.FINISHED, TestState.STOPPED}
+_DEFAULT_MARGIN = 0.5
 
 
 class ExperimentRunner:
-    """Drives MMS through an Experiment parsed from a .ats file.
+    """Drives a TsaDevice (or MockTsaDevice) through an Experiment parsed from a .ats file."""
 
-    Programs are executed in order. Each program maps to an MMS program ID
-    starting from ``start_program_id`` and incrementing by 1.
-
-    Programs must already be loaded in MMS (e.g. imported from the .ats file)
-    in the same order they appear in the Experiment.
-    """
-
-    def __init__(self, client: MedocClient, experiment: Experiment) -> None:
-        self._client = client
+    def __init__(self, device, experiment: Experiment) -> None:
+        self._device = device
         self._experiment = experiment
 
     def run(
         self,
-        start_program_id: int = 0,
         poll_hz: float = 2.0,
         program_timeout: float = 3600.0,
         inter_program_delay: float = 1.0,
+        margin: float = _DEFAULT_MARGIN,
     ) -> None:
-        """Run all programs in the experiment sequentially.
-
-        Args:
-            start_program_id: MMS ID of the first program in the experiment.
-            poll_hz: How often to poll MMS status while a program runs.
-            program_timeout: Max seconds to wait for a single program to finish.
-            inter_program_delay: Seconds to pause between programs.
-        """
         for i, program in enumerate(self._experiment.programs):
-            program_id = start_program_id + i
-            self._run_one(program, program_id, poll_hz, program_timeout)
+            self._run_one(program, poll_hz, program_timeout, margin)
             if i < len(self._experiment.programs) - 1:
                 time.sleep(inter_program_delay)
 
     def _run_one(
         self,
         program: ThermodeProgram,
-        program_id: int,
         poll_hz: float,
         timeout: float,
+        margin: float,
     ) -> None:
-        logger.info("Selecting program %d: %s", program_id, program.name)
-        resp = self._client.select_test(program_id)
-        if resp is None:
-            logger.warning("No response to SELECT_TEST for program %s — skipping", program.name)
-            return
+        logger.info("Starting program: %s", program.name)
+        self._device.set_tcu_state(SystemState.TestInit, wait_for_state=True)
 
-        logger.info("Starting program %s", program.name)
-        self._client.start()
+        for seq in program.sequences:
+            ramp_ms = int(abs(seq.destination_temp - seq.baseline_temp) / seq.destination_rate * 1000)
+            return_ms = int(abs(seq.destination_temp - seq.baseline_temp) / seq.return_rate * 1000)
+
+            for trial in range(seq.trials):
+                logger.debug(
+                    "  seq %d trial %d/%d: %.1f°C → %.1f°C (ramp %dms, hold %dms, return %dms)",
+                    seq.number, trial + 1, seq.trials,
+                    seq.baseline_temp, seq.destination_temp,
+                    ramp_ms, seq.duration_ms, return_ms,
+                )
+                self._device.finite_ramp_by_temperature(
+                    seq.destination_temp, margin, margin, time=ramp_ms
+                )
+                self._device.finite_ramp_by_temperature(
+                    seq.destination_temp, margin, margin, time=seq.duration_ms
+                )
+                self._device.finite_ramp_by_temperature(
+                    seq.baseline_temp, margin, margin, time=return_ms
+                )
+
+        self._device.run_test()
 
         interval = 1.0 / max(poll_hz, 0.1)
         deadline = time.monotonic() + timeout
-
         while time.monotonic() < deadline:
-            resp = self._client.status()
-            if resp is not None:
-                try:
-                    state = TestState(resp.test_state)
-                except ValueError:
-                    state = None
-                logger.debug(
-                    "Program %s — %.2f°C  test_state=%s",
-                    program.name,
-                    resp.temperature,
-                    state.name if state else resp.test_state,
-                )
-                if state in _TERMINAL_STATES:
-                    logger.info("Program %s finished (state=%s)", program.name, state.name)
-                    return
+            if self._device.status_state not in (None, SystemState.TestRun):
+                break
             time.sleep(interval)
+        else:
+            logger.warning("Program %s timed out after %.0fs", program.name, timeout)
 
-        logger.warning("Program %s timed out after %.0fs", program.name, timeout)
-        self._client.stop()
+        self._device.stop_test()
+        logger.info("Program %s complete", program.name)

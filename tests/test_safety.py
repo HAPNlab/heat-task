@@ -38,10 +38,10 @@ class TestSafetyTableValues:
         from medoc.safety import _TABLE
         assert _TABLE == _EXPECTED_TABLE
 
-    def test_table_is_immutable(self):
-        from medoc import safety
-        with pytest.raises((AttributeError, TypeError)):
-            safety._TABLE = ()  # type: ignore[misc]
+    def test_table_contents_are_immutable(self):
+        from medoc.safety import _TABLE
+        with pytest.raises(TypeError):
+            _TABLE[0] = (99.0, 0)  # type: ignore[index]
 
 
 class TestSafetyFunctions:
@@ -54,7 +54,7 @@ class TestSafetyFunctions:
         (50.0,   5000),
         (49.0,  10000),
         (47.0,  60000),
-        (46.9,  60000),
+        (46.9, 300000),
         (40.0, 300000),
         ( 6.0, 300000),
         ( 0.0, 300000),

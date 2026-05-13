@@ -49,7 +49,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         assert device.finite_ramp_by_temperature.call_count == 3
 
@@ -61,7 +61,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         calls = device.finite_ramp_by_temperature.call_args_list
         ramp_up_call = calls[0]
@@ -76,7 +76,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         calls = device.finite_ramp_by_temperature.call_args_list
         hold_call = calls[1]
@@ -92,7 +92,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         calls = device.finite_ramp_by_temperature.call_args_list
         return_call = calls[2]
@@ -107,7 +107,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         assert device.finite_ramp_by_temperature.call_count == 6
 
@@ -120,7 +120,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         assert device.finite_ramp_by_temperature.call_count == 6
 
@@ -130,7 +130,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         device.run_test.assert_called_once()
 
@@ -140,7 +140,7 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         device.stop_test.assert_called_once()
 
@@ -151,6 +151,6 @@ class TestSequenceToDeviceCalls:
         device = _make_device()
 
         runner = ExperimentRunner(device, experiment)
-        runner.run()
+        runner.run(program_timeout=0, inter_program_delay=0)
 
         assert device.run_test.call_count == 2
