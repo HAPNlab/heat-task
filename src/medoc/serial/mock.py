@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from medoc.serial import enums
 from medoc.serial.event import Event, TypedEvent
+from medoc.serial.token_holder import TokenHolder
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,16 @@ _TRUTHY = object()
 class _QueuedRamp:
     target_temp: float
     duration_s: float  # real-wall-clock seconds
+    token: int
+
+
+@dataclass
+class _MockStatus:
+    """Mirrors the fields the runner reads from a real get_statusTCU_response."""
+    m_executingCommandToken: int
+    m_waterTemperature: float
+    m_pcbTemperature: float
+    m_healthStatus: int
 
 
 class _MockResponse:
@@ -44,10 +55,23 @@ class MockTsaDevice:
         self.status_state: enums.SystemState | None = None
         self.status_temp: float = 35.0
 
+        self.token_holder: TokenHolder = TokenHolder()
+
         self._command_queue: list[_QueuedRamp] = []
         self._current_ramp: _QueuedRamp | None = None
         self._ramp_start_time: float | None = None
         self._ramp_start_temp: float = 35.0
+        self._current_exec_token: int = -1
+
+        # Simulated hardware diagnostics — updated with small noise each status tick
+        self._mock_water_temp: float = 22.0
+        self._mock_pcb_temp: float = 38.0
+        self._last_status: _MockStatus = _MockStatus(
+            m_executingCommandToken=-1,
+            m_waterTemperature=self._mock_water_temp,
+            m_pcbTemperature=self._mock_pcb_temp,
+            m_healthStatus=0,
+        )
 
         self._status_thread: threading.Thread | None = None
         self._stop_thread = False
@@ -80,13 +104,17 @@ class MockTsaDevice:
         return _TRUTHY
 
     def finite_ramp_by_temperature(self, temperature, low_margin, high_margin, time=100, **kwargs):
-        logger.debug("MockTsaDevice: queue ramp → %.1f°C for %d ms", temperature, time)
-        self._command_queue.append(_QueuedRamp(target_temp=temperature, duration_s=time / 1000.0))
+        token = self.token_holder.token
+        self.token_holder.token += 1
+        logger.debug("MockTsaDevice: queue ramp → %.1f°C for %d ms (token %d)", temperature, time, token)
+        self._command_queue.append(_QueuedRamp(target_temp=temperature, duration_s=time / 1000.0, token=token))
         return _TRUTHY
 
     def finite_ramp_by_time(self, temperature: float, time: int, **kwargs):
-        logger.debug("MockTsaDevice: queue ramp → %.1f°C for %d ms", temperature, time)
-        self._command_queue.append(_QueuedRamp(target_temp=temperature, duration_s=time / 1000.0))
+        token = self.token_holder.token
+        self.token_holder.token += 1
+        logger.debug("MockTsaDevice: queue ramp → %.1f°C for %d ms (token %d)", temperature, time, token)
+        self._command_queue.append(_QueuedRamp(target_temp=temperature, duration_s=time / 1000.0, token=token))
         return _TRUTHY
 
     def run_test(self, is_reset_clock=False):
@@ -94,6 +122,7 @@ class MockTsaDevice:
         self.status_state = enums.SystemState.TestRun
         self._current_ramp = None
         self._ramp_start_time = None
+        self._current_exec_token = -1
         return _TRUTHY
 
     def stop_test(self):
@@ -102,6 +131,7 @@ class MockTsaDevice:
         self._command_queue.clear()
         self._current_ramp = None
         self._ramp_start_time = None
+        self._current_exec_token = -1
         return _TRUTHY
 
     def end_test(self):
@@ -134,14 +164,6 @@ class MockTsaDevice:
         logger.debug("MockTsaDevice: simulate_response_unit(yes=%s, no=%s)", is_yes_pressed, is_no_pressed)
         return _TRUTHY
 
-    @property
-    def status_target_temp(self) -> float | None:
-        return self._current_ramp.target_temp if self._current_ramp is not None else None
-
-    @property
-    def commands_remaining(self) -> int:
-        return len(self._command_queue) + (1 if self._current_ramp is not None else 0)
-
     # --- internal ---
 
     def _run_status_thread(self, update_rate: float):
@@ -155,9 +177,10 @@ class MockTsaDevice:
                         self._current_ramp = self._command_queue.pop(0)
                         self._ramp_start_time = now
                         self._ramp_start_temp = self.status_temp
+                        self._current_exec_token = self._current_ramp.token
                         logger.debug(
-                            "MockTsaDevice: executing ramp → %.1f°C over %.2fs",
-                            self._current_ramp.target_temp, self._current_ramp.duration_s,
+                            "MockTsaDevice: executing ramp → %.1f°C over %.2fs (token %d)",
+                            self._current_ramp.target_temp, self._current_ramp.duration_s, self._current_ramp.token,
                         )
                     else:
                         self.status_state = enums.SystemState.TestInit
@@ -181,6 +204,16 @@ class MockTsaDevice:
                 delta = 35.0 - self.status_temp
                 step = min(abs(delta), 0.3) * (1 if delta >= 0 else -1)
                 self.status_temp = round(self.status_temp + step + random.uniform(-0.02, 0.02), 2)
+
+            # Update simulated diagnostics every tick
+            self._mock_water_temp = round(self._mock_water_temp + random.uniform(-0.02, 0.02), 2)
+            self._mock_pcb_temp = round(self._mock_pcb_temp + random.uniform(-0.03, 0.03), 2)
+            self._last_status = _MockStatus(
+                m_executingCommandToken=self._current_exec_token,
+                m_waterTemperature=self._mock_water_temp,
+                m_pcbTemperature=self._mock_pcb_temp,
+                m_healthStatus=0,
+            )
 
             logger.debug("MockTsaDevice: temp=%.2f°C  state=%s", self.status_temp, self.status_state)
             time.sleep(update_rate)

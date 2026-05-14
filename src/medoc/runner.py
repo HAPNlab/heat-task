@@ -6,6 +6,7 @@ import logging
 import random
 import time
 from collections import deque
+from dataclasses import dataclass
 
 from rich.console import Console
 from rich.live import Live
@@ -31,6 +32,18 @@ _STATE_STYLE = {
 _BAR_WIDTH = 20
 
 
+@dataclass
+class _Phase:
+    start_s: float
+    end_s: float
+    is_hold: bool   # True when temperature is not changing
+    label: str
+    target_temp: float
+    token: int
+    seq_number: int
+    trial_number: int  # 1-based; 0 for pre-trial hold
+
+
 class ExperimentRunner:
     """Drives a TsaDevice (or MockTsaDevice) through an Experiment parsed from a .ats file."""
 
@@ -40,6 +53,10 @@ class ExperimentRunner:
         self._console = Console()
         # rolling (monotonic_time, temp) pairs for rate / activity
         self._temp_history: deque[tuple[float, float]] = deque(maxlen=10)
+        self._phases: list[_Phase] = []
+        self._total_trials: int = 0
+        self._prev_exec_token: object = None
+        self._current_phase_wall_start: float | None = None
 
     def run(
         self,
@@ -117,6 +134,20 @@ class ExperimentRunner:
             for t in range(seq.trials):
                 all_trials.append((seq, t, t == 0))
 
+        phases: list[_Phase] = []
+        cursor_s = 0.0
+
+        def _queue_ramp_and_record(
+            call, duration_ms: int, is_hold: bool, label: str, target_temp: float,
+            seq_number: int, trial_number: int,
+        ) -> None:
+            nonlocal cursor_s
+            token = self._device.token_holder.token
+            call()
+            dur = duration_ms / 1000.0
+            phases.append(_Phase(cursor_s, cursor_s + dur, is_hold, label, target_temp, token, seq_number, trial_number))
+            cursor_s += dur
+
         for idx, (seq, trial, is_first_in_seq) in enumerate(all_trials):
             has_next = idx < len(all_trials) - 1
             ramp_ms = int(abs(seq.destination_temp - seq.baseline_temp) / seq.destination_rate * 1000)
@@ -128,8 +159,12 @@ class ExperimentRunner:
             # Hold at baseline before the first trial of this sequence
             if is_first_in_seq and seq.time_before_ms > 0:
                 logger.debug("  seq %d: time-before hold %d ms", seq.number, seq.time_before_ms)
-                self._device.finite_ramp_by_temperature(
-                    seq.baseline_temp, margin, margin, time=seq.time_before_ms
+                _queue_ramp_and_record(
+                    lambda: self._device.finite_ramp_by_temperature(
+                        seq.baseline_temp, margin, margin, time=seq.time_before_ms
+                    ),
+                    seq.time_before_ms, is_hold=True, label="baseline hold", target_temp=seq.baseline_temp,
+                    seq_number=seq.number, trial_number=0,
                 )
 
             logger.debug(
@@ -141,28 +176,44 @@ class ExperimentRunner:
 
             # Ramp to destination — onset time mark + optional TTL trigger wait
             if use_time_criterion:
-                self._device.finite_ramp_by_time(
-                    seq.destination_temp, time=ramp_ms,
-                    is_wait_for_trigger=is_ttl_trigger,
-                    is_create_time_mark=seq.mark_onset,
+                _queue_ramp_and_record(
+                    lambda: self._device.finite_ramp_by_time(
+                        seq.destination_temp, time=ramp_ms,
+                        is_wait_for_trigger=is_ttl_trigger,
+                        is_create_time_mark=seq.mark_onset,
+                    ),
+                    ramp_ms, is_hold=False, label=f"ramp → {seq.destination_temp:.1f}°C", target_temp=seq.destination_temp,
+                    seq_number=seq.number, trial_number=trial + 1,
                 )
             else:
-                self._device.finite_ramp_by_temperature(
-                    seq.destination_temp, margin, margin, time=ramp_ms,
-                    is_wait_for_trigger=is_ttl_trigger,
-                    is_create_time_mark=seq.mark_onset,
+                _queue_ramp_and_record(
+                    lambda: self._device.finite_ramp_by_temperature(
+                        seq.destination_temp, margin, margin, time=ramp_ms,
+                        is_wait_for_trigger=is_ttl_trigger,
+                        is_create_time_mark=seq.mark_onset,
+                    ),
+                    ramp_ms, is_hold=False, label=f"ramp → {seq.destination_temp:.1f}°C", target_temp=seq.destination_temp,
+                    seq_number=seq.number, trial_number=trial + 1,
                 )
 
             # Hold at destination — destination time mark
-            self._device.finite_ramp_by_temperature(
-                seq.destination_temp, margin, margin, time=seq.duration_ms,
-                is_create_time_mark=seq.mark_destination,
+            _queue_ramp_and_record(
+                lambda: self._device.finite_ramp_by_temperature(
+                    seq.destination_temp, margin, margin, time=seq.duration_ms,
+                    is_create_time_mark=seq.mark_destination,
+                ),
+                seq.duration_ms, is_hold=True, label="destination hold", target_temp=seq.destination_temp,
+                seq_number=seq.number, trial_number=trial + 1,
             )
 
             # Return to baseline — end-of-duration time mark
-            self._device.finite_ramp_by_temperature(
-                seq.baseline_temp, margin, margin, time=return_ms,
-                is_create_time_mark=seq.mark_end_of_duration,
+            _queue_ramp_and_record(
+                lambda: self._device.finite_ramp_by_temperature(
+                    seq.baseline_temp, margin, margin, time=return_ms,
+                    is_create_time_mark=seq.mark_end_of_duration,
+                ),
+                return_ms, is_hold=False, label=f"return → {seq.baseline_temp:.1f}°C", target_temp=seq.baseline_temp,
+                seq_number=seq.number, trial_number=trial + 1,
             )
 
             # ISI between this trial and the next (including across sequence boundaries)
@@ -182,19 +233,31 @@ class ExperimentRunner:
 
                 if response_ms > 0:
                     logger.debug("  seq %d: response window %d ms", seq.number, response_ms)
-                    self._device.finite_ramp_by_temperature(
-                        seq.baseline_temp, margin, margin, time=response_ms,
-                        is_create_time_mark=seq.mark_end_of_trial,
-                        is_stop_on_response_unit_yes=True,
-                        is_stop_on_response_unit_no=True,
+                    _queue_ramp_and_record(
+                        lambda: self._device.finite_ramp_by_temperature(
+                            seq.baseline_temp, margin, margin, time=response_ms,
+                            is_create_time_mark=seq.mark_end_of_trial,
+                            is_stop_on_response_unit_yes=True,
+                            is_stop_on_response_unit_no=True,
+                        ),
+                        response_ms, is_hold=True, label="response window", target_temp=seq.baseline_temp,
+                        seq_number=seq.number, trial_number=trial + 1,
                     )
                 if rest_ms > 0:
                     logger.debug("  seq %d: ISI remainder %d ms", seq.number, rest_ms)
-                    self._device.finite_ramp_by_temperature(
-                        seq.baseline_temp, margin, margin, time=rest_ms,
+                    _queue_ramp_and_record(
+                        lambda: self._device.finite_ramp_by_temperature(
+                            seq.baseline_temp, margin, margin, time=rest_ms,
+                        ),
+                        rest_ms, is_hold=True, label="ISI", target_temp=seq.baseline_temp,
+                        seq_number=seq.number, trial_number=trial + 1,
                     )
 
         self._device.run_test()
+        self._phases = phases
+        self._total_trials = len(all_trials)
+        self._prev_exec_token = None
+        self._current_phase_wall_start = None
 
         interval = 1.0 / max(poll_hz, 0.1)
         deadline = time.monotonic() + timeout
@@ -234,27 +297,20 @@ class ExperimentRunner:
             i += 2
         return sequences
 
-    def _rate_and_activity(self, temp: float) -> tuple[str, Text]:
+    def _compute_rate(self, temp: float) -> str:
         now = time.monotonic()
         self._temp_history.append((now, temp))
 
         if len(self._temp_history) < 4:
-            return "—", Text("—", style="dim")
+            return "—"
 
         t0, tmp0 = self._temp_history[0]
         t1, tmp1 = self._temp_history[-1]
         dt = t1 - t0
         if dt < 0.1:
-            return "—", Text("—", style="dim")
+            return "—"
 
-        rate = (tmp1 - tmp0) / dt  # °C/s
-        rate_str = f"{rate:+.2f} °C/s"
-
-        if rate > 0.3:
-            return rate_str, Text("Heating ↑", style="bold red")
-        if rate < -0.3:
-            return rate_str, Text("Cooling ↓", style="bold blue")
-        return rate_str, Text("Maintaining", style="green")
+        return f"{(tmp1 - tmp0) / dt:+.2f} °C/s"
 
     def _make_panel(
         self,
@@ -269,8 +325,22 @@ class ExperimentRunner:
     ) -> Panel:
         state = self._device.status_state
         temp = self._device.status_temp
+        rate_str = self._compute_rate(temp)
 
-        rate_str, activity_text = self._rate_and_activity(temp)
+        # Look up the current phase directly by token — no counter, no drift from missed polls
+        last_status = getattr(self._device, "_last_status", None)
+        exec_token = getattr(last_status, "m_executingCommandToken", None)
+        now = time.monotonic()
+        if exec_token is not None and exec_token != self._prev_exec_token:
+            self._prev_exec_token = exec_token
+            self._current_phase_wall_start = now
+
+        current_phase: _Phase | None = None
+        if exec_token is not None:
+            current_phase = next((p for p in self._phases if p.token == exec_token), None)
+
+        if current_phase is not None and self._current_phase_wall_start is not None:
+            elapsed = current_phase.start_s + (now - self._current_phase_wall_start)
 
         # Progress bar
         if total_duration_s > 0:
@@ -282,14 +352,32 @@ class ExperimentRunner:
         remaining_s = max(total_duration_s - elapsed, 0.0)
         progress_str = f"{bar}  {frac * 100:.0f}%  (~{remaining_s:.0f}s left)"
 
-        # Temperature + target
-        target = getattr(self._device, "status_target_temp", None)
-        if target is not None:
-            temp_str = f"{temp:.2f}°C  →  {target:.1f}°C"
+        target = current_phase.target_temp if current_phase is not None else None
+        temp_str = f"{temp:.2f}°C  →  {target:.1f}°C" if target is not None else f"{temp:.2f}°C"
+
+        # Activity derived from the current phase — no lag, no dT/dt estimation
+        if current_phase is not None:
+            if current_phase.is_hold:
+                activity_text = Text("Maintaining", style="green")
+            elif current_phase.target_temp > temp:
+                activity_text = Text("Heating ↑", style="bold red")
+            else:
+                activity_text = Text("Cooling ↓", style="bold blue")
         else:
-            temp_str = f"{temp:.2f}°C"
+            activity_text = Text("—", style="dim")
 
         state_text = Text(str(state.name) if state else "—", style=_STATE_STYLE.get(state, ""))
+
+        hold_str: str | None = None
+        if current_phase is not None and current_phase.is_hold and self._current_phase_wall_start is not None:
+            duration = current_phase.end_s - current_phase.start_s
+            remaining = duration - (now - self._current_phase_wall_start)
+            if remaining >= 0:
+                hold_str = f"{remaining:.0f}s  ({current_phase.label})"
+
+        trial_str: str | None = None
+        if current_phase is not None and current_phase.trial_number > 0:
+            trial_str = f"{current_phase.trial_number}/{self._total_trials}  seq {current_phase.seq_number}"
 
         rows: list[tuple[str, str | Text]] = [
             ("Program", f"{prog_idx}/{total_progs}  {program_name}"),
@@ -299,6 +387,10 @@ class ExperimentRunner:
             ("Rate", rate_str),
             ("Temperature", temp_str),
         ]
+        if trial_str is not None:
+            rows.append(("Trial", trial_str))
+        if hold_str is not None:
+            rows.append(("Hold remaining", hold_str))
 
         raw = getattr(self._device, "_last_status", None)
         if raw is not None:
