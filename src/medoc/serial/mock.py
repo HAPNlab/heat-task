@@ -6,6 +6,7 @@ import logging
 import random
 import threading
 import time
+from dataclasses import dataclass
 
 from medoc.serial import enums
 from medoc.serial.event import Event, TypedEvent
@@ -13,6 +14,12 @@ from medoc.serial.event import Event, TypedEvent
 logger = logging.getLogger(__name__)
 
 _TRUTHY = object()
+
+
+@dataclass
+class _QueuedRamp:
+    target_temp: float
+    duration_s: float  # real-wall-clock seconds
 
 
 class _MockResponse:
@@ -37,7 +44,11 @@ class MockTsaDevice:
         self.status_state: enums.SystemState | None = None
         self.status_temp: float = 35.0
 
-        self._target_temp: float = 35.0
+        self._command_queue: list[_QueuedRamp] = []
+        self._current_ramp: _QueuedRamp | None = None
+        self._ramp_start_time: float | None = None
+        self._ramp_start_temp: float = 35.0
+
         self._status_thread: threading.Thread | None = None
         self._stop_thread = False
 
@@ -69,23 +80,28 @@ class MockTsaDevice:
         return _TRUTHY
 
     def finite_ramp_by_temperature(self, temperature, low_margin, high_margin, time=100, **kwargs):
-        logger.debug("MockTsaDevice: finite_ramp_by_temperature(temp=%.1f, time=%d ms)", temperature, time)
-        self._target_temp = temperature
+        logger.debug("MockTsaDevice: queue ramp → %.1f°C for %d ms", temperature, time)
+        self._command_queue.append(_QueuedRamp(target_temp=temperature, duration_s=time / 1000.0))
         return _TRUTHY
 
     def finite_ramp_by_time(self, temperature: float, time: int, **kwargs):
-        logger.debug("MockTsaDevice: finite_ramp_by_time(temp=%.1f, time=%d ms)", temperature, time)
-        self._target_temp = temperature
+        logger.debug("MockTsaDevice: queue ramp → %.1f°C for %d ms", temperature, time)
+        self._command_queue.append(_QueuedRamp(target_temp=temperature, duration_s=time / 1000.0))
         return _TRUTHY
 
     def run_test(self, is_reset_clock=False):
-        logger.debug("MockTsaDevice: run_test()")
+        logger.debug("MockTsaDevice: run_test() — %d commands queued", len(self._command_queue))
         self.status_state = enums.SystemState.TestRun
+        self._current_ramp = None
+        self._ramp_start_time = None
         return _TRUTHY
 
     def stop_test(self):
         logger.debug("MockTsaDevice: stop_test()")
         self.status_state = enums.SystemState.TestInit
+        self._command_queue.clear()
+        self._current_ramp = None
+        self._ramp_start_time = None
         return _TRUTHY
 
     def end_test(self):
@@ -95,6 +111,7 @@ class MockTsaDevice:
 
     def clear_command_buffer(self):
         logger.debug("MockTsaDevice: clear_command_buffer()")
+        self._command_queue.clear()
         return _TRUTHY
 
     def enable_thermode(self, thermode_type=enums.ThermodeType.TSA):
@@ -117,13 +134,53 @@ class MockTsaDevice:
         logger.debug("MockTsaDevice: simulate_response_unit(yes=%s, no=%s)", is_yes_pressed, is_no_pressed)
         return _TRUTHY
 
+    @property
+    def status_target_temp(self) -> float | None:
+        return self._current_ramp.target_temp if self._current_ramp is not None else None
+
+    @property
+    def commands_remaining(self) -> int:
+        return len(self._command_queue) + (1 if self._current_ramp is not None else 0)
+
     # --- internal ---
 
     def _run_status_thread(self, update_rate: float):
         while not self._stop_thread:
-            # Slowly drift status_temp toward _target_temp
-            delta = self._target_temp - self.status_temp
-            step = min(abs(delta), 0.5) * (1 if delta >= 0 else -1)
-            self.status_temp = round(self.status_temp + step + random.uniform(-0.05, 0.05), 2)
+            now = time.monotonic()
+
+            if self.status_state == enums.SystemState.TestRun:
+                # Advance to next command if needed
+                if self._current_ramp is None:
+                    if self._command_queue:
+                        self._current_ramp = self._command_queue.pop(0)
+                        self._ramp_start_time = now
+                        self._ramp_start_temp = self.status_temp
+                        logger.debug(
+                            "MockTsaDevice: executing ramp → %.1f°C over %.2fs",
+                            self._current_ramp.target_temp, self._current_ramp.duration_s,
+                        )
+                    else:
+                        self.status_state = enums.SystemState.TestInit
+                        self._current_ramp = None
+                        logger.debug("MockTsaDevice: all ramps done → TestInit")
+
+                if self._current_ramp is not None and self._ramp_start_time is not None:
+                    elapsed = now - self._ramp_start_time
+                    frac = min(elapsed / max(self._current_ramp.duration_s, 1e-6), 1.0)
+                    target = self._current_ramp.target_temp
+                    self.status_temp = round(
+                        self._ramp_start_temp + (target - self._ramp_start_temp) * frac
+                        + random.uniform(-0.05, 0.05),
+                        2,
+                    )
+                    if frac >= 1.0:
+                        self._current_ramp = None
+                        self._ramp_start_time = None
+            else:
+                # Idle: drift back toward 35°C with noise
+                delta = 35.0 - self.status_temp
+                step = min(abs(delta), 0.3) * (1 if delta >= 0 else -1)
+                self.status_temp = round(self.status_temp + step + random.uniform(-0.02, 0.02), 2)
+
             logger.debug("MockTsaDevice: temp=%.2f°C  state=%s", self.status_temp, self.status_state)
             time.sleep(update_rate)

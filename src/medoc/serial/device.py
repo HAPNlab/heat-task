@@ -57,6 +57,7 @@ class TsaDevice:
 
         self.status_state = None
         self.status_temp = 0.0
+        self._last_status = None
 
         self.status_thread = None
         self.status_thread_stop = False
@@ -70,6 +71,7 @@ class TsaDevice:
     def _on_get_status_event(self, status_res):
         self.status_state = enums.SystemState(status_res.get_state())
         self.status_temp = status_res.get_temp()
+        self._last_status = status_res
 
         safety_level = get_safety_level(self.status_temp)
         if safety_level != self.last_safety_level:

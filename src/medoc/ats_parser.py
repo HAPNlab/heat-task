@@ -405,6 +405,18 @@ def _as_int(v: Any) -> int:
     return 0
 
 
+def _has_time_mark(event_spec: Any) -> bool:
+    """True if this event spec is a time-based event with a non-zero TTL code."""
+    if not isinstance(event_spec, dict):
+        return False
+    ttl = event_spec.get('TTLEventType', {})
+    if not isinstance(ttl, dict) or ttl.get('value__', 0) == 0:
+        return False
+    condition = event_spec.get('m_condition', {})
+    # Temperature-condition events need condition-event serialisation we don't support yet
+    return isinstance(condition, dict) and 'TemperatureConditionSpec' not in condition.get('__class__', '')
+
+
 def _extract_sequences(sequences_field: Any) -> tuple[RampAndHoldSequence, ...]:
     """Extract RampAndHoldSequence objects from the m_sequences ArrayList."""
     if not isinstance(sequences_field, dict):
@@ -421,6 +433,14 @@ def _extract_sequences(sequences_field: Any) -> tuple[RampAndHoldSequence, ...]:
             continue
         if 'Medoc.ATS.RampAndHoldSequence' not in item.get('__class__', ''):
             continue
+
+        def _enum_val(raw: Any, default: int = 0) -> int:
+            if isinstance(raw, (int, float)):
+                return int(raw)
+            if isinstance(raw, dict):
+                return _as_int(raw.get('value__', default))
+            return default
+
         seqs.append(RampAndHoldSequence(
             number=_as_int(item.get('m_number')),
             trials=_as_int(item.get('m_trialsNumber')) or 1,
@@ -430,8 +450,17 @@ def _extract_sequences(sequences_field: Any) -> tuple[RampAndHoldSequence, ...]:
             return_rate=_as_float(item.get('m_returnRate')),
             duration_ms=_as_int(item.get('m_durationTime')),
             time_before_ms=_as_int(item.get('m_timeBeforeSequence')),
+            waiting_time_for_response_ms=_as_int(item.get('m_waitingTimeForResponse')),
             inter_trials_min_ms=_as_int(item.get('m_interTrialsTimeMin')),
             inter_trials_max_ms=_as_int(item.get('m_interTrialsTimeMax')),
+            inter_trials_time_option=_enum_val(item.get('m_interTrialsTimeOption'), default=1),
+            destination_criterion=_enum_val(item.get('m_destinationCriterion'), default=0),
+            trigger=_enum_val(item.get('m_trigger'), default=0),
+            randomize_with_next=bool(item.get('m_isRandomizeWithNext', False)),
+            mark_onset=_has_time_mark(item.get('m_onsetEvent')),
+            mark_destination=_has_time_mark(item.get('m_destinationEvent')),
+            mark_end_of_duration=_has_time_mark(item.get('m_endOfDurationEvent')),
+            mark_end_of_trial=_has_time_mark(item.get('m_endOfTrialEvent')),
         ))
     return tuple(seqs)
 
@@ -465,6 +494,11 @@ def parse_ats(path: str | Path) -> Experiment:
             name = str(name)
 
         sequences = _extract_sequences(root.get('m_sequences'))
-        programs.append(ThermodeProgram(name=name, sequences=sequences))
+        programs.append(ThermodeProgram(
+            name=name,
+            sequences=sequences,
+            randomize_sequences=bool(root.get('m_randomizeSequences;', False)),
+            delay_before_ms=_as_int(root.get('m_delayBeforProgram', 0)),
+        ))
 
     return Experiment(programs=tuple(programs))
