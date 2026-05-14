@@ -97,11 +97,17 @@ def run_ats(
     mock: MOCK_OPT = False,
     poll_hz: Annotated[float, typer.Option(help="Status poll frequency (Hz)")] = 2.0,
     timeout: Annotated[float, typer.Option(help="Max seconds per program")] = 3600.0,
-    inter_delay: Annotated[float, typer.Option(help="Seconds between programs")] = 1.0,
     margin: Annotated[float, typer.Option(help="Temperature margin (°C) for ramp commands")] = 0.5,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    program: Annotated[
+        int | None,
+        typer.Option(
+            "--program", "-n",
+            help="1-based index of the program to run. Omit to choose interactively.",
+        ),
+    ] = None,
 ) -> None:
-    """Parse a .ats experiment file and run each program through the TSA2."""
+    """Parse a .ats experiment file and run a single program through the TSA2."""
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
@@ -121,7 +127,27 @@ def run_ats(
         summary.add_row(str(i + 1), prog.name, str(len(prog.sequences)))
     console.print(summary)
 
-    typer.confirm(f"Run {len(experiment.programs)} programs?", abort=True)
+    n = len(experiment.programs)
+
+    if program is not None:
+        if not 1 <= program <= n:
+            console.print(f"[red]Program index {program} out of range (1–{n})[/red]")
+            raise typer.Exit(1)
+        selected_index = program - 1
+    else:
+        raw = typer.prompt(f"Program to run (1–{n})")
+        try:
+            chosen = int(raw.strip())
+        except ValueError:
+            console.print("[red]Invalid input — enter a single number[/red]")
+            raise typer.Exit(1) from None
+        if not 1 <= chosen <= n:
+            console.print(f"[red]Program index {chosen} out of range (1–{n})[/red]")
+            raise typer.Exit(1)
+        selected_index = chosen - 1
+
+    selected_name = experiment.programs[selected_index].name
+    typer.confirm(f"Run program: {selected_name}?", abort=True)
 
     device = _make_device(port, mock)
     device.start_status_thread()
@@ -130,8 +156,8 @@ def run_ats(
         runner.run(
             poll_hz=poll_hz,
             program_timeout=timeout,
-            inter_program_delay=inter_delay,
             margin=margin,
+            program_index=selected_index,
         )
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted — stopping[/yellow]")
