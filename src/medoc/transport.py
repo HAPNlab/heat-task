@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+import struct
 from types import TracebackType
 
 
@@ -48,11 +49,31 @@ class MedocTransport:
             raise RuntimeError("Not connected — call connect() first")
         self._sock.sendall(data)
 
-    def recv(self, bufsize: int = 4096) -> bytes:
+    def _recv_exactly(self, nbytes: int) -> bytes:
+        if self._sock is None:
+            raise RuntimeError("Not connected — call connect() first")
+        chunks: list[bytes] = []
+        remaining = nbytes
+        while remaining > 0:
+            chunk = self._sock.recv(remaining)
+            if not chunk:
+                return b""
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+
+    def recv(self) -> bytes:
         if self._sock is None:
             raise RuntimeError("Not connected — call connect() first")
         try:
-            return self._sock.recv(bufsize)
+            length_bytes = self._recv_exactly(4)
+            if not length_bytes:
+                return b""
+            response_length = struct.unpack("<I", length_bytes)[0]
+            body = self._recv_exactly(response_length)
+            if not body:
+                return b""
+            return length_bytes + body
         except TimeoutError:
             return b""
 
