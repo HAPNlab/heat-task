@@ -399,7 +399,11 @@ class ExperimentRunner:
             if getattr(raw, "m_pcbTemperature", None):
                 rows.append(("PCB temp", f"{raw.m_pcbTemperature:.2f}°C"))
             if getattr(raw, "m_healthStatus", None) is not None:
-                rows.append(("Health", hex(raw.m_healthStatus)))
+                if raw.m_healthStatus == 0:
+                    health_text = Text("OK", style="bold green")
+                else:
+                    health_text = Text(f"FAULT  {hex(raw.m_healthStatus)}", style="bold red")
+                rows.append(("System health", health_text))
 
         if status:
             rows.append(("", Text(status, style="italic dim")))
