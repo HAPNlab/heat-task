@@ -1,16 +1,18 @@
-"""medoc — Python library for Medoc TSA2 direct serial control."""
+"""medoc — Python client library for the Medoc MMS external control interface."""
 
-from medoc.ats_parser import parse_ats
-from medoc.experiment import Experiment, RampAndHoldSequence, ThermodeProgram
-from medoc.runner import ExperimentRunner
-from medoc.serial import MockTsaDevice, TsaDevice
+from medoc.client import MedocClient
+from medoc.models import Command, MedocResponse, ReturnCode, SystemState, TestState
+from medoc.protocol import decode_response, encode_command
+from medoc.transport import MedocTransport
 
 __all__ = [
-    "Experiment",
-    "ExperimentRunner",
-    "MockTsaDevice",
-    "RampAndHoldSequence",
-    "ThermodeProgram",
-    "TsaDevice",
-    "parse_ats",
+    "Command",
+    "MedocClient",
+    "MedocResponse",
+    "MedocTransport",
+    "ReturnCode",
+    "SystemState",
+    "TestState",
+    "decode_response",
+    "encode_command",
 ]

@@ -3,51 +3,95 @@
 from __future__ import annotations
 
 import struct
+from unittest.mock import patch
 
 import pytest
 
 from medoc.models import Command
 from medoc.protocol import RESPONSE_FORMAT, RESPONSE_HEADER_SIZE, decode_response, encode_command
 
+_FIXED_TS = 1_000_000
+
+
+def _frame(command: int, param: int | None = None) -> bytes:
+    """Build the expected wire frame for a command at _FIXED_TS."""
+    body = struct.pack("<I", _FIXED_TS) + bytes([command])
+    if param is not None:
+        body += struct.pack("<I", param)
+    return struct.pack("<I", len(body)) + body
+
 
 class TestEncodeCommand:
+    def _encode(self, command: Command, parameter: int | None = None) -> bytes:
+        with patch("medoc.protocol._time.time", return_value=float(_FIXED_TS)):
+            return encode_command(command, parameter)
+
     def test_status(self):
-        assert encode_command(Command.STATUS) == b"\x00"
+        assert self._encode(Command.STATUS) == _frame(0)
 
     def test_start(self):
-        assert encode_command(Command.START) == b"\x02"
+        assert self._encode(Command.START) == _frame(2)
 
-    def test_stop(self):
-        assert encode_command(Command.STOP) == b"\x05"
+    def test_pause(self):
+        assert self._encode(Command.PAUSE) == _frame(3)
 
     def test_trigger(self):
-        assert encode_command(Command.TRIGGER) == b"\x04"
+        assert self._encode(Command.TRIGGER) == _frame(4)
+
+    def test_stop(self):
+        assert self._encode(Command.STOP) == _frame(5)
+
+    def test_abort(self):
+        assert self._encode(Command.ABORT) == _frame(6)
+
+    def test_yes_no(self):
+        assert self._encode(Command.YES) == _frame(7)
+        assert self._encode(Command.NO) == _frame(8)
+
+    def test_covas_vas_specify_next_key_up(self):
+        assert self._encode(Command.COVAS) == _frame(9)
+        assert self._encode(Command.VAS) == _frame(10)
+        assert self._encode(Command.SPECIFY_NEXT) == _frame(11)
+        assert self._encode(Command.KEY_UP) == _frame(14)
 
     def test_select_test(self):
-        assert encode_command(Command.SELECT_TEST, 15) == b"\x01\x0f"
+        assert self._encode(Command.SELECT_TEST, 15) == _frame(1, 15)
 
     def test_select_test_requires_parameter(self):
-        with pytest.raises(ValueError, match="SELECT_TEST requires"):
-            encode_command(Command.SELECT_TEST)
+        with patch("medoc.protocol._time.time", return_value=float(_FIXED_TS)):
+            with pytest.raises(ValueError, match="SELECT_TEST requires"):
+                encode_command(Command.SELECT_TEST)
 
-    def test_increase_temp(self):
-        # 1.5°C = 150 = 0x0096 little-endian
-        result = encode_command(Command.INCREASE_TEMP, 150)
-        assert result == b"\x09" + struct.pack("<H", 150)
+    def test_t_up(self):
+        # 500 raw units → 5.00°C via client, but protocol receives raw int
+        assert self._encode(Command.T_UP, 500) == _frame(12, 500)
 
-    def test_decrease_temp(self):
-        result = encode_command(Command.DECREASE_TEMP, 200)
-        assert result == b"\x0a" + struct.pack("<H", 200)
+    def test_t_down(self):
+        assert self._encode(Command.T_DOWN, 1000) == _frame(13, 1000)
 
-    def test_increase_temp_requires_parameter(self):
-        with pytest.raises(ValueError, match="INCREASE_TEMP requires"):
-            encode_command(Command.INCREASE_TEMP)
+    def test_t_up_requires_parameter(self):
+        with patch("medoc.protocol._time.time", return_value=float(_FIXED_TS)):
+            with pytest.raises(ValueError, match="T_UP requires"):
+                encode_command(Command.T_UP)
 
-    def test_yes_no_key_up_next(self):
-        assert encode_command(Command.YES) == b"\x07"
-        assert encode_command(Command.NO) == b"\x08"
-        assert encode_command(Command.KEY_UP) == b"\x0b"
-        assert encode_command(Command.NEXT_SEQUENCE) == b"\x0c"
+    def test_frame_length_field_no_param(self):
+        data = self._encode(Command.STATUS)
+        length = struct.unpack("<I", data[:4])[0]
+        assert length == len(data) - 4  # 4 (timestamp) + 1 (command) = 5
+
+    def test_frame_length_field_with_param(self):
+        data = self._encode(Command.SELECT_TEST, 1)
+        length = struct.unpack("<I", data[:4])[0]
+        assert length == len(data) - 4  # 4 (timestamp) + 1 (command) + 4 (param) = 9
+
+    def test_timestamp_embedded_in_frame(self):
+        data = self._encode(Command.STATUS)
+        ts = struct.unpack("<I", data[4:8])[0]
+        assert ts == _FIXED_TS
+
+    def test_command_byte_at_correct_offset(self):
+        data = self._encode(Command.START)
+        assert data[8] == int(Command.START)
 
 
 class TestDecodeResponse:

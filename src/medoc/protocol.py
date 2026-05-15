@@ -1,11 +1,22 @@
 """Pure encode/decode functions for the Medoc MMS wire protocol.
 
+Wire format (little-endian):
+  Command frame: [uint32 length] [uint32 timestamp] [uint8 command] [uint32 parameter, optional]
+  Where length = byte count of everything after the length field.
+
+  Response frame:  [uint32 length] [uint32 timestamp] [uint8 command]
+                   [uint8 system_state] [uint8 test_state] [uint16 return_code]
+                   [uint32 test_time] [int16 temperature×100]
+                   [uint8 covas] [uint8 yes] [uint8 no] [uint8 ttl]
+                   [optional error string]
+
 No I/O — only struct.pack / struct.unpack. Fully testable with byte literals.
 """
 
 from __future__ import annotations
 
 import struct
+import time as _time
 
 from medoc.models import Command, MedocResponse
 
@@ -13,27 +24,26 @@ from medoc.models import Command, MedocResponse
 RESPONSE_FORMAT = "<IIBBBHIhBBBB"
 RESPONSE_HEADER_SIZE = struct.calcsize(RESPONSE_FORMAT)  # 23 bytes
 
+_PARAMETRIC_COMMANDS = {Command.SELECT_TEST, Command.T_UP, Command.T_DOWN}
+
 
 def encode_command(command: Command, parameter: int | None = None) -> bytes:
-    """Encode a command into bytes to send to the MMS.
+    """Encode a command into wire bytes to send to the MMS.
 
-    - Most commands are a single byte.
-    - SELECT_TEST appends a program ID byte.
-    - INCREASE_TEMP / DECREASE_TEMP append a uint16 LE parameter (degrees × 100).
+    Frame: [4B length LE] [4B unix timestamp LE] [1B command] [4B parameter LE, optional]
+
+    Parameters are required for SELECT_TEST, T_UP, and T_DOWN.
     """
-    buf = bytes([int(command)])
+    if command in _PARAMETRIC_COMMANDS and parameter is None:
+        raise ValueError(f"{command.name} requires a parameter")
 
-    if command == Command.SELECT_TEST:
-        if parameter is None:
-            raise ValueError("SELECT_TEST requires a program ID parameter")
-        buf += struct.pack("<B", parameter)
+    timestamp = int(_time.time())
+    body = struct.pack("<I", timestamp) + bytes([int(command)])
 
-    elif command in (Command.INCREASE_TEMP, Command.DECREASE_TEMP):
-        if parameter is None:
-            raise ValueError(f"{command.name} requires a temperature parameter (degrees × 100)")
-        buf += struct.pack("<H", parameter)
+    if command in _PARAMETRIC_COMMANDS:
+        body += struct.pack("<I", parameter)  # type: ignore[arg-type]
 
-    return buf
+    return struct.pack("<I", len(body)) + body
 
 
 def decode_response(data: bytes) -> MedocResponse:

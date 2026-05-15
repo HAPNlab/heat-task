@@ -7,14 +7,7 @@ name = "medoc"
 version = "0.1.0"
 description = "Python client library for Medoc MMS external control"
 requires-python = ">=3.11"
-dependencies = [
-    "typer>=0.9",
-    "rich>=13",
-    "pyserial>=3.5",
-]
-
-[project.scripts]
-medoc = "medoc.cli:app"
+dependencies = []
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/medoc"]

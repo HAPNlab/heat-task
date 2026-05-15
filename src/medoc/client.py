@@ -8,11 +8,11 @@ from medoc.transport import MedocTransport
 
 
 class MedocClient:
-    """High-level API for controlling the Medoc Main Station.
+    """High-level API for controlling the Medoc Main Station over TCP.
 
     Usage::
 
-        with MedocClient("192.168.1.100") as mc:
+        with MedocClient.connect("192.168.1.100") as mc:
             print(mc.status())
             mc.select_test(15)
             mc.start()
@@ -76,20 +76,32 @@ class MedocClient:
     def stop(self) -> MedocResponse | None:
         return self.send_command(Command.STOP)
 
+    def abort(self) -> MedocResponse | None:
+        return self.send_command(Command.ABORT)
+
     def yes(self) -> MedocResponse | None:
         return self.send_command(Command.YES)
 
     def no(self) -> MedocResponse | None:
         return self.send_command(Command.NO)
 
-    def increase_temp(self, degrees: float) -> MedocResponse | None:
-        return self.send_command(Command.INCREASE_TEMP, int(degrees * 100))
+    def covas(self) -> MedocResponse | None:
+        return self.send_command(Command.COVAS)
 
-    def decrease_temp(self, degrees: float) -> MedocResponse | None:
-        return self.send_command(Command.DECREASE_TEMP, int(degrees * 100))
+    def vas(self) -> MedocResponse | None:
+        return self.send_command(Command.VAS)
+
+    def specify_next(self) -> MedocResponse | None:
+        return self.send_command(Command.SPECIFY_NEXT)
+
+    def t_up(self, degrees: float) -> MedocResponse | None:
+        """Increase temperature by the given number of degrees (×100 on wire)."""
+        return self.send_command(Command.T_UP, int(degrees * 100))
+
+    def t_down(self, degrees: float) -> MedocResponse | None:
+        """Decrease temperature by the given number of degrees (×100 on wire)."""
+        return self.send_command(Command.T_DOWN, int(degrees * 100))
 
     def key_up(self) -> MedocResponse | None:
+        """Stop the current temperature gradient."""
         return self.send_command(Command.KEY_UP)
-
-    def next_sequence(self) -> MedocResponse | None:
-        return self.send_command(Command.NEXT_SEQUENCE)

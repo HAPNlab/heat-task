@@ -13,36 +13,41 @@ class Command(IntEnum):
     PAUSE = 3
     TRIGGER = 4
     STOP = 5
+    ABORT = 6
     YES = 7
     NO = 8
-    INCREASE_TEMP = 9
-    DECREASE_TEMP = 10
-    KEY_UP = 11
-    NEXT_SEQUENCE = 12
+    COVAS = 9
+    VAS = 10
+    SPECIFY_NEXT = 11
+    T_UP = 12
+    T_DOWN = 13
+    KEY_UP = 14
 
 
 class SystemState(IntEnum):
+    """Pathway system state (SYSTEM_STATE field in response)."""
     IDLE = 0
     READY = 1
-    RUNNING = 2
-    PAUSED = 3
-    FINISHED = 4
-    ERROR = 5
+    TEST = 2
 
 
 class TestState(IntEnum):
+    """Pathway test state (TEST_STATE field in response)."""
     IDLE = 0
     RUNNING = 1
     PAUSED = 2
-    FINISHED = 3
-    STOPPED = 4
+    READY = 3
 
 
 class ReturnCode(IntEnum):
+    """Result code returned by MMS after each command."""
     OK = 0
-    ILLEGAL_COMMAND = 1
-    ILLEGAL_PARAMETER = 2
-    SYSTEM_ERROR = 3
+    ILLEGAL_ARG = 1
+    ILLEGAL_STATE = 2
+    ILLEGAL_TEST_STATE = 3
+    DEVICE_COMM_ERROR = 4096
+    SAFETY_WARNING = 8192
+    SAFETY_ERROR = 16384
 
 
 @dataclass(frozen=True, slots=True)
