@@ -38,3 +38,24 @@ Options:
 ```bash
 uv run medoc run --help
 ```
+
+## PsychoPy Ramp/Hold Task
+
+Run the PsychoPy ramp-and-hold task with:
+
+```bash
+uv run medoc-ramp-hold
+```
+
+The task reads a TOML run file from `conditions/`. Example:
+
+```toml
+program_word = "00001111"
+
+[[trial]]
+baseline = 32.0
+target_temp = 45.0
+```
+
+At launch the task selects the program in MMS, keeps a participant crosshair on screen, and waits
+for the experimenter to press the start key in PsychoPy after manual pretest in MMS.

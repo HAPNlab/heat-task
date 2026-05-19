@@ -8,11 +8,13 @@ version = "0.1.0"
 description = "Python client library for Medoc MMS external control"
 requires-python = ">=3.11"
 dependencies = [
+    "psychopy>=2025.1",
     "rich>=15.0.0",
 ]
 
 [project.scripts]
 medoc = "medoc.cli:main"
+medoc-ramp-hold = "medoc.ramp_hold.__main__:run"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/medoc"]

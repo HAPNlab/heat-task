@@ -1,0 +1,25 @@
+program_word = "00001111"
+
+[[trial]]
+baseline = 30.0
+target_temp = 46.0
+
+[[trial]]
+baseline = 30.0
+target_temp = 48.0
+
+[[trial]]
+baseline = 30.0
+target_temp = 48.0
+
+[[trial]]
+baseline = 30.0
+target_temp = 46.0
+
+[[trial]]
+baseline = 30.0
+target_temp = 46.0
+
+[[trial]]
+baseline = 30.0
+target_temp = 48.0

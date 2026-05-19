@@ -1,0 +1,37 @@
+{
+  "subject_id": "XXX000",
+  "host": "172.16.56.128",
+  "port": 20121,
+  "run_file": "example.toml",
+  "program_word": "00001111",
+  "program_id": 15,
+  "session_time": "2026-05-15T15:58:32",
+  "frame_rate_hz": 60.004,
+  "n_trials": 6,
+  "trials": [
+    {
+      "baseline": 30.0,
+      "target_temp": 46.0
+    },
+    {
+      "baseline": 30.0,
+      "target_temp": 48.0
+    },
+    {
+      "baseline": 30.0,
+      "target_temp": 48.0
+    },
+    {
+      "baseline": 30.0,
+      "target_temp": 46.0
+    },
+    {
+      "baseline": 30.0,
+      "target_temp": 46.0
+    },
+    {
+      "baseline": 30.0,
+      "target_temp": 48.0
+    }
+  ]
+}
