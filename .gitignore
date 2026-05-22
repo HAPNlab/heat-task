@@ -27,3 +27,5 @@ htmlcov/
 
 # Ramp-hold local session state
 .ramp_hold_last_connection.json
+
+data/

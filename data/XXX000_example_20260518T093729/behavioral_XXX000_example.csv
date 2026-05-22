@@ -1,4 +1,0 @@
-trial_n,baseline,target_temp,ramp_up_onset_s,hold_onset_s,ramp_down_onset_s,baseline_return_s,rating,rating_rt_ms,rating_timeout,trial_end_s,sample_count
-1,30.0,46.0,20.605,23.405,53.205,86.803,7,3076.86,0,86.834,435
-2,30.0,48.0,87.605,90.005,119.803,154.005,8,3145.37,0,154.032,336
-3,30.0,48.0,154.805,157.205,187.005,221.205,,,1,221.232,336
