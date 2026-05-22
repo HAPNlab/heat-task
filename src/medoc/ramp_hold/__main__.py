@@ -26,6 +26,7 @@ task_input.configure_psychopy_backend()
 from medoc.models import ReturnCode
 from medoc.ramp_hold import config, display, recorder, session, trial
 from medoc.ramp_hold.conditions import load_run_config
+from medoc.ramp_hold.console import TrialLiveView
 
 
 def run() -> None:
@@ -115,25 +116,28 @@ def run() -> None:
 
     poller = trial.StatusPoller(session_info.host, session_info.port)
     trace_index = 0
+    prev_baseline_return_s: float | None = None
     poller.start()
     try:
-        for trial_index, trial_config in enumerate(run_config.trials, start=1):
-            rcon.print(
-                f"[bold]Trial {trial_index}/{len(run_config.trials)}:[/bold] "
-                f"baseline={trial_config.baseline:.2f}C target={trial_config.target_temp:.2f}C"
-            )
-            record, trace_index = trial.run_trial(
-                win=win,
-                stimuli=stimuli_obj,
-                kb=kb,
-                task_start=task_start,
-                trial_n=trial_index,
-                trial_config=trial_config,
-                trace_index=trace_index,
-                trace_writer=trace_writer,
-                poller=poller,
-            )
-            behavior_writer.append(record)
+        with TrialLiveView(rcon, len(run_config.trials)) as view:
+            for trial_index, trial_config in enumerate(run_config.trials, start=1):
+                view.start_trial(trial_index, trial_config.baseline, trial_config.target_temp)
+                record, trace_index = trial.run_trial(
+                    win=win,
+                    stimuli=stimuli_obj,
+                    kb=kb,
+                    task_start=task_start,
+                    trial_n=trial_index,
+                    trial_config=trial_config,
+                    trace_index=trace_index,
+                    trace_writer=trace_writer,
+                    poller=poller,
+                    initial_delay_s=run_config.initial_delay_s,
+                    prev_baseline_return_s=prev_baseline_return_s,
+                    view=view,
+                )
+                behavior_writer.append(record)
+                prev_baseline_return_s = record.baseline_return_s if isinstance(record.baseline_return_s, float) else None
 
         rcon.print("[bold green]Run complete[/bold green]")
         trial.run_end_screen(win, stimuli_obj, kb)

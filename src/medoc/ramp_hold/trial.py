@@ -18,7 +18,8 @@ from medoc.client import MedocClient
 from medoc.models import ReturnCode
 from medoc.ramp_hold import config, display, recorder
 from medoc.ramp_hold.conditions import TrialConfig
-from medoc.ramp_hold.detector import RampHoldDetector
+from medoc.ramp_hold.console import TrialLiveView
+from medoc.ramp_hold.detector import DetectorConfig, RampHoldDetector
 from medoc.ramp_hold.input import clear_events, get_keys, wait_for_keys
 
 
@@ -55,12 +56,26 @@ class StatusPoller:
                 return items
 
     def _run(self) -> None:
-        next_poll_at = time.monotonic()
+        client: MedocClient | None = None
         while not self._stop_event.is_set():
+            if client is None:
+                try:
+                    client = MedocClient.connect(
+                        self._host,
+                        self._port,
+                        connect_timeout=config.CONNECT_TIMEOUT_S,
+                        recv_timeout=config.RECV_TIMEOUT_S,
+                    )
+                except Exception:
+                    time.sleep(1.0)
+                    continue
+
             sample_time = time.monotonic()
             try:
-                response = send_command(self._host, self._port, "status")
+                response = client.status()
             except Exception:
+                client.close()
+                client = None
                 response = None
 
             if response is not None:
@@ -74,10 +89,11 @@ class StatusPoller:
                     )
                 )
 
-            next_poll_at += config.POLL_INTERVAL_S
-            sleep_for = next_poll_at - time.monotonic()
-            if sleep_for > 0:
-                time.sleep(sleep_for)
+            if config.POLL_INTERVAL_S > 0:
+                time.sleep(config.POLL_INTERVAL_S)
+
+        if client is not None:
+            client.close()
 
 
 @dataclass(slots=True)
@@ -140,6 +156,9 @@ def run_trial(
     trace_index: int,
     trace_writer: recorder.TraceWriter,
     poller: StatusPoller,
+    initial_delay_s: float | None = None,
+    prev_baseline_return_s: float | None = None,
+    view: TrialLiveView | None = None,
 ) -> tuple[recorder.BehaviorRecord, int]:
     """Run one complete ramp-hold trial and return its behavioural record."""
     state = TrialState(
@@ -152,14 +171,39 @@ def run_trial(
     rating_complete = False
     selected_rating = 0.0
     marker_x = -config.SLIDER_HALF_W
+    ramp_up_primed = False
+    ramp_down_primed = False
 
     while True:
         now_s = time.monotonic() - task_start
+
+        if not ramp_up_primed and state.detector.phase == "baseline":
+            if trial_n == 1 and initial_delay_s is not None:
+                if now_s >= initial_delay_s - config.PRIME_WINDOW_S:
+                    state.detector.prime(DetectorConfig.primed())
+                    ramp_up_primed = True
+            elif trial_config.baseline_duration_s is not None and prev_baseline_return_s is not None:
+                if now_s >= prev_baseline_return_s + trial_config.baseline_duration_s - config.PRIME_WINDOW_S:
+                    state.detector.prime(DetectorConfig.primed())
+                    ramp_up_primed = True
+
+        if (
+            not ramp_down_primed
+            and state.detector.phase == "hold"
+            and trial_config.target_hold_duration_s is not None
+            and isinstance(state.hold_onset_s, float)
+            and now_s >= state.hold_onset_s + trial_config.target_hold_duration_s - config.PRIME_WINDOW_S
+        ):
+            state.detector.prime(DetectorConfig.primed())
+            ramp_down_primed = True
+
         for sample in poller.drain():
             trace_index += 1
             sample_time_s = sample.monotonic_time - task_start
             update = state.detector.update(sample.temperature)
             state.sample_count += 1
+            if view is not None:
+                view.on_sample(update.smoothed_temperature, update.phase)
 
             if update.transitioned:
                 if update.event == "ramp_up":
@@ -225,6 +269,9 @@ def run_trial(
                 state.rating_timeout = 1
                 rating_active = False
                 rating_complete = True
+
+            if rating_complete and not rating_active and view is not None:
+                view.on_rating(state.rating, state.rating_rt_ms, bool(state.rating_timeout))
 
         if rating_active:
             display.draw_rating(stimuli, marker_x)

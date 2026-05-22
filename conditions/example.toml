@@ -1,25 +1,38 @@
 program_word = "00001111"
+initial_delay_s = 20.0        # fixed delay at task start before first ramp begins
 
 [[trial]]
-baseline = 30.0
+baseline = 35.0
 target_temp = 46.0
+baseline_duration_s = 30.0        # post-ramp-down hold at baseline before next ramp-up
+target_hold_duration_s = 30.0      # hold at target temp before ramp-down
 
 [[trial]]
-baseline = 30.0
+baseline = 35.0
 target_temp = 48.0
+baseline_duration_s = 30.0
+target_hold_duration_s = 30.0
 
 [[trial]]
-baseline = 30.0
+baseline = 35.0
 target_temp = 48.0
+baseline_duration_s = 30.0
+target_hold_duration_s = 30.0
 
 [[trial]]
-baseline = 30.0
+baseline = 35.0
 target_temp = 46.0
+baseline_duration_s = 30.0
+target_hold_duration_s = 30.0
 
 [[trial]]
-baseline = 30.0
+baseline = 35.0
 target_temp = 46.0
+baseline_duration_s = 30.0
+target_hold_duration_s = 30.0
 
 [[trial]]
-baseline = 30.0
+baseline = 35.0
 target_temp = 48.0
+baseline_duration_s = 30.0
+target_hold_duration_s = 30.0

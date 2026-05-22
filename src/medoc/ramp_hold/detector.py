@@ -20,6 +20,17 @@ class DetectorConfig:
     ramp_down_delta: float = config.RAMP_DOWN_DELTA
     min_slope_per_sample: float = config.MIN_SLOPE_PER_SAMPLE
 
+    @classmethod
+    def primed(cls) -> DetectorConfig:
+        return cls(
+            smoothing_window=config.PRIMED_SMOOTHING_WINDOW,
+            trend_window=config.PRIMED_TREND_WINDOW,
+            consecutive_samples=config.PRIMED_CONSECUTIVE_SAMPLES,
+            ramp_start_delta=config.PRIMED_RAMP_START_DELTA,
+            ramp_down_delta=config.PRIMED_RAMP_DOWN_DELTA,
+            min_slope_per_sample=config.PRIMED_MIN_SLOPE_PER_SAMPLE,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class DetectorUpdate:
@@ -45,6 +56,13 @@ class RampHoldDetector:
         self._window = deque(maxlen=self.config.smoothing_window)
         self._slopes = deque(maxlen=self.config.trend_window)
         self._peak_temperature = self.trial.baseline
+
+    def prime(self, primed_config: DetectorConfig) -> None:
+        """Switch to tighter detection params ahead of an expected transition."""
+        self._window = deque(self._window, maxlen=primed_config.smoothing_window)
+        self._slopes = deque(self._slopes, maxlen=primed_config.trend_window)
+        self.config = primed_config
+        self._gates.clear()
 
     def update(self, raw_temperature: float) -> DetectorUpdate:
         self._window.append(raw_temperature)
