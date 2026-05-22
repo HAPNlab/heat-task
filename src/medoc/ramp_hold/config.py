@@ -17,9 +17,15 @@ MIN_SLOPE_PER_SAMPLE = 0.03
 
 RATING_TIMEOUT_S = 10.0
 
+# Slider geometry (height units; window height = 1.0)
+SLIDER_HALF_W = 0.4
+SLIDER_TRACK_H = 0.006
+SLIDER_MARKER_H = 0.10
+SLIDER_Y = 0.0
+
 INSTRUCTION_KEYS: dict[str, list[str]] = {
-    "forward": ["right"],
-    "back": ["left"],
+    "forward": ["4"],
+    "back": ["3"],
 }
 START_KEYS = ["0", "num_0"]
 RATING_KEYS: dict[str, list[str]] = {
@@ -36,7 +42,7 @@ INSTRUCTION_PAGES = [
     "Keep your eyes on the crosshair throughout the task.",
     "When the temperature starts ramping up, the word READY will appear.",
     (
-        "When the temperature ramps down, rate the pain from 0 to 10 using the left "
-        "and right arrow keys, then press space or return to confirm."
+        "When the temperature ramps down, rate the pain intensity by moving the trackball "
+        "left or right, then click the trackball button or press space to confirm."
     ),
 ]

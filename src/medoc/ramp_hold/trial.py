@@ -89,7 +89,7 @@ class TrialState:
     hold_onset_s: float | str = ""
     ramp_down_onset_s: float | str = ""
     baseline_return_s: float | str = ""
-    rating: int | str = ""
+    rating: float | str = ""
     rating_rt_ms: float | str = ""
     rating_timeout: int = 0
     sample_count: int = 0
@@ -150,7 +150,8 @@ def run_trial(
     rating_active = False
     rating_started_at = 0.0
     rating_complete = False
-    selected_rating = 0
+    selected_rating = 0.0
+    marker_x = -config.SLIDER_HALF_W
 
     while True:
         now_s = time.monotonic() - task_start
@@ -169,7 +170,9 @@ def run_trial(
                     state.ramp_down_onset_s = round(sample_time_s, 3)
                     rating_active = True
                     rating_started_at = sample_time_s
-                    selected_rating = 0
+                    selected_rating = 0.0
+                    marker_x = -config.SLIDER_HALF_W
+                    stimuli.mouse.setPos([-config.SLIDER_HALF_W, 0])
                     clear_events(kb)
                 elif update.event == "complete":
                     state.baseline_return_s = round(sample_time_s, 3)
@@ -195,27 +198,28 @@ def run_trial(
         _check_quit(kb)
 
         if rating_active:
+            raw_x = stimuli.mouse.getPos()[0]
+            marker_x = max(-config.SLIDER_HALF_W, min(config.SLIDER_HALF_W, raw_x))
+            selected_rating = (marker_x + config.SLIDER_HALF_W) / (2 * config.SLIDER_HALF_W) * 10.0
+
             for key_name in _drain_key_names(
                 kb,
-                [
-                    *config.RATING_KEYS["left"],
-                    *config.RATING_KEYS["right"],
-                    *config.RATING_KEYS["confirm"],
-                    *config.QUIT_KEYS,
-                ],
+                [*config.RATING_KEYS["confirm"], *config.QUIT_KEYS],
             ):
                 if key_name in config.QUIT_KEYS:
                     core.quit()
-                if key_name in config.RATING_KEYS["left"]:
-                    selected_rating = max(0, selected_rating - 1)
-                elif key_name in config.RATING_KEYS["right"]:
-                    selected_rating = min(10, selected_rating + 1)
-                elif key_name in config.RATING_KEYS["confirm"]:
-                    state.rating = selected_rating
+                if key_name in config.RATING_KEYS["confirm"]:
+                    state.rating = round(selected_rating, 2)
                     state.rating_rt_ms = round((now_s - rating_started_at) * 1000.0, 2)
                     rating_active = False
                     rating_complete = True
                     break
+
+            if not rating_complete and stimuli.mouse.leftButtonPressed:
+                state.rating = round(selected_rating, 2)
+                state.rating_rt_ms = round((now_s - rating_started_at) * 1000.0, 2)
+                rating_active = False
+                rating_complete = True
 
             if rating_active and now_s - rating_started_at >= config.RATING_TIMEOUT_S:
                 state.rating_timeout = 1
@@ -223,7 +227,7 @@ def run_trial(
                 rating_complete = True
 
         if rating_active:
-            display.draw_rating(stimuli, selected_rating)
+            display.draw_rating(stimuli, marker_x)
         elif state.detector.phase == "ramp_up":
             display.draw_ready(stimuli)
         else:
@@ -262,8 +266,23 @@ def require_ok(console: Console, label: str, response) -> None:
     if response is None:
         raise RuntimeError(f"{label} failed: no response from MMS")
     if response.return_code != int(ReturnCode.OK):
-        raise RuntimeError(f"{label} failed: MMS return code {response.return_code}")
+        flags = _decode_return_code(response.return_code)
+        raise RuntimeError(f"{label} failed: {flags} (code {response.return_code})")
     console.print(f"[green]{label} ok[/green]")
+
+
+def _decode_return_code(code: int) -> str:
+    """Decode a bitfield return code into human-readable flag names."""
+    flag_bits = {
+        ReturnCode.ILLEGAL_ARG: "ILLEGAL_ARG",
+        ReturnCode.ILLEGAL_STATE: "ILLEGAL_STATE",
+        ReturnCode.ILLEGAL_TEST_STATE: "ILLEGAL_TEST_STATE",
+        ReturnCode.DEVICE_COMM_ERROR: "DEVICE_COMM_ERROR",
+        ReturnCode.SAFETY_WARNING: "SAFETY_WARNING",
+        ReturnCode.SAFETY_ERROR: "SAFETY_ERROR",
+    }
+    names = [name for flag, name in flag_bits.items() if code & int(flag)]
+    return " | ".join(names) if names else f"UNKNOWN({code})"
 
 
 def _wait_for_key(kb: keyboard.Keyboard | None, key_list: list[str]) -> str:

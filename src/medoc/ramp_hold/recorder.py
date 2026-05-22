@@ -23,7 +23,7 @@ class BehaviorRecord:
     hold_onset_s: float | str
     ramp_down_onset_s: float | str
     baseline_return_s: float | str
-    rating: int | str
+    rating: float | str
     rating_rt_ms: float | str
     rating_timeout: int
     trial_end_s: float

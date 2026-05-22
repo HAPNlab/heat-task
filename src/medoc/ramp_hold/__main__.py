@@ -7,6 +7,7 @@ Wires the PsychoPy task modules together.
 
 from __future__ import annotations
 
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -15,7 +16,7 @@ from psychopy import core
 
 core.checkPygletDuringWait = False
 
-from psychopy import logging
+from psychopy import gui, logging
 from rich.console import Console
 
 from medoc.ramp_hold import input as task_input
@@ -28,9 +29,18 @@ from medoc.ramp_hold.conditions import load_run_config
 
 
 def run() -> None:
+    dev_mode = "--dev" in sys.argv
     session_info = session.show_dialog()
     run_config = load_run_config(session_info.run_file)
     session_time = datetime.now()
+
+    rcon = Console(stderr=True)
+    rcon.print(
+        "[yellow]In MMS, click 'Go to Test' and confirm the status reads "
+        "'External Control: TSA 2 is waiting for Test Program', "
+        "then press Enter to continue.[/yellow]"
+    )
+    input()
 
     _, win = session.setup_screen()
     measured_fps = win.getActualFrameRate()
@@ -41,7 +51,6 @@ def run() -> None:
     logging.LogFile(str(run_dir / "experiment.log"), level=logging.EXP)
     logging.console.setLevel(logging.WARNING)
 
-    rcon = Console(stderr=True)
     rcon.print(
         f"[bold]Session:[/bold] subject=[cyan]{session_info.subject_id}[/cyan]  "
         f"run-file=[cyan]{session_info.run_file}[/cyan]"
@@ -59,27 +68,39 @@ def run() -> None:
 
     stimuli_obj = display.build_stimuli(win)
     kb = task_input.build_keyboard()
-    win.mouseVisible = False
+    win.mouseVisible = dev_mode  # show cursor in dev so mouse can simulate trackball
 
     recorder.write_manifest(run_dir, session_info, session_time, run_config, frame_rate)
 
-    if session_info.show_instructions:
-        session.display_instructions(win, stimuli_obj, kb)
-
-    trial.require_ok(
-        rcon,
-        "select",
-        trial.send_command(
+    # Verify MMS is reachable before showing any task UI.
+    try:
+        response = trial.send_command(
             session_info.host,
             session_info.port,
             "select_test",
             run_config.program_id,
-        ),
-    )
+        )
+    except Exception as exc:
+        win.close()
+        gui.warnDlg(
+            prompt=f"Could not reach MMS at {session_info.host}:{session_info.port}\n\n{exc}"
+        )
+        core.quit()
+        return
+
+    try:
+        trial.require_ok(rcon, "MMS program selected", response)
+    except RuntimeError as exc:
+        win.close()
+        gui.warnDlg(prompt=f"MMS rejected the program selection.\n\n{exc}")
+        core.quit()
+
     rcon.print(
-        "[yellow]Program selected in MMS. Click Pretest in MMS, then press "
-        f"{config.START_KEYS[0]} in PsychoPy to send START.[/yellow]"
+        f"[yellow]Press {config.START_KEYS[0]} in PsychoPy to send START to MMS.[/yellow]"
     )
+
+    if session_info.show_instructions:
+        session.display_instructions(win, stimuli_obj, kb)
 
     trial.wait_for_start(win, stimuli_obj, kb)
 
