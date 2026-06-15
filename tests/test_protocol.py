@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from medoc.models import Command
-from medoc.protocol import RESPONSE_FORMAT, RESPONSE_HEADER_SIZE, decode_response, encode_command
+from heat_task.medoc.models import Command
+from heat_task.medoc.protocol import RESPONSE_FORMAT, RESPONSE_HEADER_SIZE, decode_response, encode_command
 
 _FIXED_TS = 1_000_000
 
@@ -23,7 +23,7 @@ def _frame(command: int, param: int | None = None) -> bytes:
 
 class TestEncodeCommand:
     def _encode(self, command: Command, parameter: int | None = None) -> bytes:
-        with patch("medoc.protocol._time.time", return_value=float(_FIXED_TS)):
+        with patch("heat_task.medoc.protocol._time.time", return_value=float(_FIXED_TS)):
             return encode_command(command, parameter)
 
     def test_status(self):
@@ -58,7 +58,7 @@ class TestEncodeCommand:
         assert self._encode(Command.SELECT_TEST, 15) == _frame(1, 15)
 
     def test_select_test_requires_parameter(self):
-        with patch("medoc.protocol._time.time", return_value=float(_FIXED_TS)):
+        with patch("heat_task.medoc.protocol._time.time", return_value=float(_FIXED_TS)):
             with pytest.raises(ValueError, match="SELECT_TEST requires"):
                 encode_command(Command.SELECT_TEST)
 
@@ -70,7 +70,7 @@ class TestEncodeCommand:
         assert self._encode(Command.T_DOWN, 1000) == _frame(13, 1000)
 
     def test_t_up_requires_parameter(self):
-        with patch("medoc.protocol._time.time", return_value=float(_FIXED_TS)):
+        with patch("heat_task.medoc.protocol._time.time", return_value=float(_FIXED_TS)):
             with pytest.raises(ValueError, match="T_UP requires"):
                 encode_command(Command.T_UP)
 

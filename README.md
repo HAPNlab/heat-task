@@ -44,8 +44,12 @@ uv run medoc run --help
 Run the PsychoPy ramp-and-hold task with:
 
 ```bash
-uv run medoc-ramp-hold
+uv run heat-task
 ```
+
+> On Apple Silicon, psychtoolbox is installed manually (see `pyproject.toml`), and
+> `uv run` would otherwise remove it. Launch with `uv run --no-sync heat-task`
+> (or `export UV_NO_SYNC=1`) to keep the manual install.
 
 The task reads a TOML run file from `conditions/`. Example:
 

@@ -3,27 +3,44 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "medoc"
+name = "heat-task"
 version = "0.1.0"
-description = "Python client library for Medoc MMS external control"
+description = "Ramp-and-hold thermal pain task (PsychoPy) driven by a Medoc MMS thermode"
 requires-python = ">=3.11"
 dependencies = [
     "psychopy>=2025.1",
     "rich>=15.0.0",
+    "psyexp-core",
 ]
+# Note: psychtoolbox is NOT declared here. PyPI has no arm64 wheel for it, so on
+# Apple Silicon install it manually from the lab build, e.g.
+#   uv pip install ../Psychtoolbox-3/dist/psychtoolbox-3.0.22.2-cp311-cp311-macosx_10_9_universal2.whl
+# Because `uv sync`/`uv run` are exact by default and will remove it, run them as
+# `uv sync --inexact` and `uv run --no-sync ...` (or set UV_NO_SYNC=1) to keep the
+# manual install. On Windows the lab build is needed similarly; PsychoPy's own
+# transitive psychtoolbox (<3.0.20, non-arm64) otherwise applies.
 
 [project.scripts]
-medoc = "medoc.cli:main"
-medoc-ramp-hold = "medoc.ramp_hold.__main__:run"
+heat-task = "heat_task.__main__:run"
+medoc = "heat_task.medoc.cli:main"
+
+# psyexp-core is pinned to a tagged release of the shared harness, so any clone
+# resolves the same core (the run manifest also records psyexp_core_version). To
+# co-develop the core locally, overlay an editable install of the sibling checkout
+# and skip the re-sync that would revert it back to the pinned tag:
+#   uv pip install -e ../psyexp-core
+#   uv run --no-sync ...        # or: export UV_NO_SYNC=1
+[tool.uv.sources]
+psyexp-core = { git = "https://github.com/HAPNlab/psyexp-core.git", tag = "v0.1.0" }
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/medoc"]
+packages = ["src/heat_task"]
 
 [dependency-groups]
 dev = [
     "pytest>=8",
     "ruff>=0.4",
-]
+]  
 
 [tool.ruff]
 line-length = 100

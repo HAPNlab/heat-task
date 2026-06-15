@@ -18,7 +18,7 @@ from __future__ import annotations
 import struct
 import time as _time
 
-from medoc.models import Command, MedocResponse
+from heat_task.medoc.models import Command, MedocResponse
 
 # Little-endian: uint32 uint32 uint8 uint8 uint8 uint16 uint32 int16 uint8 uint8 uint8 uint8
 RESPONSE_FORMAT = "<IIBBBHIhBBBB"

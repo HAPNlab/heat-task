@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,8 +24,8 @@ class RunConfig:
     initial_delay_s: float | None = None
 
 
-_PACKAGE_DIR = Path(__file__).parent
-_PROJECT_ROOT = _PACKAGE_DIR.parent.parent.parent
+_PACKAGE_DIR = Path(__file__).parent  # src/heat_task
+_PROJECT_ROOT = _PACKAGE_DIR.parent.parent  # src/heat_task -> src -> project root
 _CONDITIONS_DIR = _PROJECT_ROOT / "conditions"
 
 

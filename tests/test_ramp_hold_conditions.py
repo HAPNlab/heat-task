@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from medoc.ramp_hold.conditions import load_run_config, parse_program_word
+from heat_task.conditions import load_run_config, parse_program_word
 
 
 def test_parse_program_word_accepts_8_bit_string() -> None:

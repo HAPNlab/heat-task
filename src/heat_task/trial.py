@@ -14,13 +14,13 @@ from psychopy import core, visual
 from psychopy.hardware import keyboard
 from rich.console import Console
 
-from medoc.client import MedocClient
-from medoc.models import ReturnCode
-from medoc.ramp_hold import config, display, recorder
-from medoc.ramp_hold.conditions import TrialConfig
-from medoc.ramp_hold.console import TrialLiveView
-from medoc.ramp_hold.detector import DetectorConfig, RampHoldDetector
-from medoc.ramp_hold.input import clear_events, get_keys, wait_for_keys
+from heat_task import config, display, recorder
+from heat_task.conditions import TrialConfig
+from heat_task.console import TrialLiveView
+from heat_task.detector import DetectorConfig, RampHoldDetector
+from heat_task.input import clear_events, get_keys, wait_for_keys
+from heat_task.medoc.client import MedocClient
+from heat_task.medoc.models import ReturnCode
 
 
 @dataclass(frozen=True, slots=True)

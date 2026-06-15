@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 
-from medoc.ramp_hold import config
-from medoc.ramp_hold.conditions import TrialConfig
+from heat_task import config
+from heat_task.conditions import TrialConfig
 
 
 @dataclass(frozen=True, slots=True)

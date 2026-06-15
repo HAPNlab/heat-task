@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from medoc.ramp_hold.conditions import TrialConfig
-from medoc.ramp_hold.detector import DetectorConfig, RampHoldDetector
+from heat_task.conditions import TrialConfig
+from heat_task.detector import DetectorConfig, RampHoldDetector
 
 
 def test_detector_transitions_through_all_phases() -> None:

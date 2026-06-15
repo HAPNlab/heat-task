@@ -1,7 +1,7 @@
 # ruff: noqa: E402
 
 """
-Entry point: `python -m medoc.ramp_hold` or `medoc-ramp-hold`.
+Entry point: `python -m heat_task` or `heat-task`.
 Wires the PsychoPy task modules together.
 """
 
@@ -17,16 +17,17 @@ from psychopy import core
 core.checkPygletDuringWait = False
 
 from psychopy import gui, logging
+from psyexp_core import rundir, screen
 from rich.console import Console
 
-from medoc.ramp_hold import input as task_input
+from heat_task import input as task_input
 
 task_input.configure_psychopy_backend()
 
-from medoc.models import ReturnCode
-from medoc.ramp_hold import config, display, recorder, session, trial
-from medoc.ramp_hold.conditions import load_run_config
-from medoc.ramp_hold.console import TrialLiveView
+from heat_task import config, display, recorder, session, trial
+from heat_task.conditions import load_run_config
+from heat_task.console import TrialLiveView
+from heat_task.medoc.models import ReturnCode
 
 
 def run() -> None:
@@ -43,12 +44,14 @@ def run() -> None:
     )
     input()
 
-    _, win = session.setup_screen()
-    measured_fps = win.getActualFrameRate()
-    frame_rate = measured_fps if (measured_fps is not None and measured_fps < 200) else 60.0
+    win_res, win, screen_diag = screen.setup_screen(color=config.WINDOW_COLOR)
+    frame_rate = 1000.0 / screen_diag.calib_median_ms if screen_diag.calib_median_ms else 60.0
+    if frame_rate >= 200:
+        frame_rate = 60.0
 
     data_dir = Path("data")
-    run_dir = session.make_run_dir(data_dir, session_info, session_time)
+    run_stem = Path(session_info.run_file).stem
+    run_dir = rundir.make_run_dir(data_dir, f"{session_info.subject_id}_{run_stem}", session_time)
     logging.LogFile(str(run_dir / "experiment.log"), level=logging.EXP)
     logging.console.setLevel(logging.WARNING)
 
@@ -71,7 +74,9 @@ def run() -> None:
     kb = task_input.build_keyboard()
     win.mouseVisible = dev_mode  # show cursor in dev so mouse can simulate trackball
 
-    recorder.write_manifest(run_dir, session_info, session_time, run_config, frame_rate)
+    recorder.write_manifest(
+        run_dir, session_info, session_time, run_config, frame_rate, screen_diag, win_res
+    )
 
     # Verify MMS is reachable before showing any task UI.
     try:

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from medoc.models import Command, MedocResponse
-from medoc.protocol import decode_response, encode_command
-from medoc.transport import MedocTransport
+from heat_task.medoc.models import Command, MedocResponse
+from heat_task.medoc.protocol import decode_response, encode_command
+from heat_task.medoc.transport import MedocTransport
 
 
 class MedocClient:

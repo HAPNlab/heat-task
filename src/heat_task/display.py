@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from psychopy import visual
 from psychopy.hardware.mouse import Mouse
 
-from medoc.ramp_hold import config
+from heat_task import config
 
 
 @dataclass

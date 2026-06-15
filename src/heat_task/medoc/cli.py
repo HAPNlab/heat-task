@@ -10,9 +10,9 @@ from collections.abc import Sequence
 from enum import IntEnum
 from typing import TextIO
 
-from medoc.client import MedocClient
-from medoc.models import MedocResponse, ReturnCode, SystemState, TestState
-from medoc.transport import MedocTransport
+from heat_task.medoc.client import MedocClient
+from heat_task.medoc.models import MedocResponse, ReturnCode, SystemState, TestState
+from heat_task.medoc.transport import MedocTransport
 
 CommandCall = str | tuple[str, int]
 

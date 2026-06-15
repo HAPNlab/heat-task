@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-import medoc.cli as cli
-from medoc.models import MedocResponse, ReturnCode, SystemState
-from medoc.models import TestState as MedocTestState
+import heat_task.medoc.cli as cli
+from heat_task.medoc.models import MedocResponse, ReturnCode, SystemState
+from heat_task.medoc.models import TestState as MedocTestState
 
 
 def _response(

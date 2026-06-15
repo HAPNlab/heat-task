@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
-import csv
-import json
 from dataclasses import dataclass
 from datetime import datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from psyexp_core.manifest import write_manifest as _core_write_manifest
+from psyexp_core.recording import CsvWriter
+
+from heat_task import config
+
 if TYPE_CHECKING:
-    from medoc.ramp_hold.conditions import RunConfig
-    from medoc.ramp_hold.session import SessionInfo
+    from psyexp_core.diagnostics import ScreenDiagnostics
+
+    from heat_task.conditions import RunConfig
+    from heat_task.session import SessionInfo
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,22 +85,6 @@ TRACE_COLUMNS = [
 ]
 
 
-class CsvWriter:
-    def __init__(self, path: Path, columns: list[str]) -> None:
-        self._file = open(path, "w", newline="")
-        self._writer = csv.DictWriter(self._file, fieldnames=columns)
-        self._writer.writeheader()
-        self._columns = columns
-
-    def append(self, record: object) -> None:
-        row = {name: getattr(record, name) for name in self._columns}
-        self._writer.writerow(row)
-        self._file.flush()
-
-    def close(self) -> None:
-        self._file.close()
-
-
 class BehaviorWriter(CsvWriter):
     def __init__(self, path: Path) -> None:
         super().__init__(path, BEHAVIOR_COLUMNS)
@@ -111,27 +101,58 @@ class TraceWriter(CsvWriter):
         super().append(record)
 
 
+def _heat_task_version() -> str:
+    try:
+        return version("heat-task")
+    except PackageNotFoundError:
+        return "unknown"
+
+
 def write_manifest(
     run_dir: Path,
-    session_info: "SessionInfo",
+    session_info: SessionInfo,
     session_time: datetime,
-    run_config: "RunConfig",
+    run_config: RunConfig,
     frame_rate: float,
+    screen_diag: ScreenDiagnostics,
+    win_res: list[int],
 ) -> None:
-    manifest = {
+    """Write the run manifest via the shared harness, injecting the heat-task
+    header and study parameters; psyexp_core fills in system/display/process."""
+    header = {
+        "heat_task_version": _heat_task_version(),
         "subject_id": session_info.subject_id,
         "host": session_info.host,
         "port": session_info.port,
         "run_file": session_info.run_file,
         "program_word": run_config.program_word,
         "program_id": run_config.program_id,
-        "session_time": session_time.isoformat(timespec="seconds"),
-        "frame_rate_hz": round(frame_rate, 3),
-        "n_trials": len(run_config.trials),
         "trials": [
             {"baseline": trial.baseline, "target_temp": trial.target_temp}
             for trial in run_config.trials
         ],
     }
-    with open(run_dir / "manifest.json", "w") as handle:
-        json.dump(manifest, handle, indent=2)
+    study_params = {
+        "initial_delay_s": run_config.initial_delay_s,
+        "rating_timeout_s": config.RATING_TIMEOUT_S,
+        "baseline_tolerance": config.BASELINE_TOLERANCE,
+        "target_tolerance": config.TARGET_TOLERANCE,
+        "ramp_start_delta": config.RAMP_START_DELTA,
+        "ramp_down_delta": config.RAMP_DOWN_DELTA,
+        "min_slope_per_sample": config.MIN_SLOPE_PER_SAMPLE,
+        "smoothing_window": config.SMOOTHING_WINDOW,
+        "trend_window": config.TREND_WINDOW,
+        "consecutive_samples": config.CONSECUTIVE_SAMPLES,
+    }
+    _core_write_manifest(
+        run_dir,
+        header=header,
+        session_time=session_time,
+        screen_diag=screen_diag,
+        win_res=win_res,
+        study_params=study_params,
+        frame_rate=frame_rate,
+        n_trials=len(run_config.trials),
+        frame_dur_s=(1.0 / frame_rate) if frame_rate else None,
+        frame_dur_source="calibration",
+    )

@@ -2,12 +2,16 @@ This Python project uses UV. Please refer to `pyproject.toml` and `README.md` to
 
 ## Architecture
 
-This library implements the **Medoc MMS external control interface** — a TCP-based protocol for controlling the Medoc Main Station (MMS) software. It is a Python port of the official MATLAB external control example in `examples/medoc-external-control/`.
+This project is a **PsychoPy ramp-and-hold thermal task** driven by a Medoc MMS thermode. It also vendors a small **Medoc MMS external control** client (a Python port of the official MATLAB example in `examples/medoc-external-control/`).
 
-The library lives in `src/medoc/` and has three layers:
+The task package lives in `src/heat_task/` — entry point `__main__.py` (console script `heat-task`), plus `session.py` (setup wizard + instructions), `trial.py`, `detector.py`, `display.py`, `recorder.py`, `conditions.py`, and `config.py`.
+
+The Medoc TCP client is a **subpackage** at `src/heat_task/medoc/` (console script `medoc`) with three layers:
 - `transport.py` — raw TCP socket (connect/send/recv/close)
 - `protocol.py` — wire encoding/decoding (encode_command, decode_response)
 - `client.py` — high-level API (MedocClient with named methods per command)
+
+Task-agnostic experiment plumbing — screen/VSYNC setup, run manifest, CSV writers, setup-wizard primitives, instruction pager, keyboard abstraction — comes from the separate **`psyexp-core`** package (consumed via an editable path source in dev; see `[tool.uv.sources]` in `pyproject.toml`).
 
 ## Terminology
 
