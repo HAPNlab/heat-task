@@ -700,7 +700,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "psychopy", specifier = ">=2025.1" },
-    { name = "psyexp-core", editable = "../psyexp-core" },
+    { name = "psyexp-core", git = "https://github.com/HAPNlab/psyexp-core.git?tag=v0.1.0" },
     { name = "rich", specifier = ">=15.0.0" },
 ]
 
@@ -1587,31 +1587,13 @@ wheels = [
 [[package]]
 name = "psyexp-core"
 version = "0.1.0"
-source = { editable = "../psyexp-core" }
+source = { git = "https://github.com/HAPNlab/psyexp-core.git?tag=v0.1.0#209bc49b21f36fd599bcc3aa9ab7465b81b04fb0" }
 dependencies = [
     { name = "prompt-toolkit" },
     { name = "psychopy" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
     { name = "questionary" },
     { name = "rich" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "prompt-toolkit", specifier = ">=3.0" },
-    { name = "psychopy", specifier = ">=2025.1" },
-    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'", specifier = ">=10" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
-    { name = "questionary", specifier = ">=2.0" },
-    { name = "rich", specifier = ">=14.3.3" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
-]
-provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8" },
-    { name = "ruff", specifier = ">=0.4" },
 ]
 
 [[package]]

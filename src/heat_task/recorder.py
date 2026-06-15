@@ -29,9 +29,8 @@ class BehaviorRecord:
     hold_onset_s: float | str
     ramp_down_onset_s: float | str
     baseline_return_s: float | str
-    rating: float | str
-    rating_rt_ms: float | str
-    rating_timeout: int
+    rating: float
+    rating_no_response: int
     trial_end_s: float
     sample_count: int
 
@@ -62,8 +61,7 @@ BEHAVIOR_COLUMNS = [
     "ramp_down_onset_s",
     "baseline_return_s",
     "rating",
-    "rating_rt_ms",
-    "rating_timeout",
+    "rating_no_response",
     "trial_end_s",
     "sample_count",
 ]

@@ -51,8 +51,8 @@ def test_behavior_csv_roundtrip(tmp_path: Path):
         BehaviorRecord(
             trial_n=1, baseline=35.0, target_temp=46.0,
             ramp_up_onset_s=1.0, hold_onset_s=2.0, ramp_down_onset_s=3.0,
-            baseline_return_s=4.0, rating=5.0, rating_rt_ms=234.5,
-            rating_timeout=0, trial_end_s=10.0, sample_count=120,
+            baseline_return_s=4.0, rating=5.0,
+            rating_no_response=0, trial_end_s=10.0, sample_count=120,
         )
     )
     w.close()

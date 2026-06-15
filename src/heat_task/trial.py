@@ -30,6 +30,7 @@ class StatusSample:
     system_state: int
     test_state: int
     test_time_ms: int
+    rtt_ms: float
 
 
 class StatusPoller:
@@ -64,7 +65,7 @@ class StatusPoller:
                         self._host,
                         self._port,
                         connect_timeout=config.CONNECT_TIMEOUT_S,
-                        recv_timeout=config.RECV_TIMEOUT_S,
+                        recv_timeout=config.POLL_RECV_TIMEOUT_S,
                     )
                 except Exception:
                     time.sleep(1.0)
@@ -74,20 +75,27 @@ class StatusPoller:
             try:
                 response = client.status()
             except Exception:
-                client.close()
-                client = None
                 response = None
 
-            if response is not None:
-                self._queue.put(
-                    StatusSample(
-                        monotonic_time=sample_time,
-                        temperature=response.temperature,
-                        system_state=response.system_state,
-                        test_state=response.test_state,
-                        test_time_ms=response.test_time,
-                    )
+            if response is None:
+                # Timeout or an undecodable frame: the long-lived stream may be
+                # desynced (a mid-frame timeout leaves bytes unread). Drop the
+                # socket and reconnect to resynchronise rather than reusing it
+                # and emitting garbage — that is what caused multi-second stalls.
+                client.close()
+                client = None
+                continue
+
+            self._queue.put(
+                StatusSample(
+                    monotonic_time=sample_time,
+                    temperature=response.temperature,
+                    system_state=response.system_state,
+                    test_state=response.test_state,
+                    test_time_ms=response.test_time,
+                    rtt_ms=(time.monotonic() - sample_time) * 1000.0,
                 )
+            )
 
             if config.POLL_INTERVAL_S > 0:
                 time.sleep(config.POLL_INTERVAL_S)
@@ -105,9 +113,8 @@ class TrialState:
     hold_onset_s: float | str = ""
     ramp_down_onset_s: float | str = ""
     baseline_return_s: float | str = ""
-    rating: float | str = ""
-    rating_rt_ms: float | str = ""
-    rating_timeout: int = 0
+    rating: float = config.RATING_MIN
+    rating_no_response: int = 0
     sample_count: int = 0
 
 
@@ -169,7 +176,8 @@ def run_trial(
     rating_active = False
     rating_started_at = 0.0
     rating_complete = False
-    selected_rating = 0.0
+    rating_interacted = False
+    rating_start_x = 0.0
     marker_x = -config.SLIDER_HALF_W
     ramp_up_primed = False
     ramp_down_primed = False
@@ -203,7 +211,7 @@ def run_trial(
             update = state.detector.update(sample.temperature)
             state.sample_count += 1
             if view is not None:
-                view.on_sample(update.smoothed_temperature, update.phase)
+                view.on_sample(update.smoothed_temperature, update.phase, sample.rtt_ms)
 
             if update.transitioned:
                 if update.event == "ramp_up":
@@ -214,9 +222,10 @@ def run_trial(
                     state.ramp_down_onset_s = round(sample_time_s, 3)
                     rating_active = True
                     rating_started_at = sample_time_s
-                    selected_rating = 0.0
+                    rating_interacted = False
                     marker_x = -config.SLIDER_HALF_W
                     stimuli.mouse.setPos([-config.SLIDER_HALF_W, 0])
+                    rating_start_x = stimuli.mouse.getPos()[0]
                     clear_events(kb)
                 elif update.event == "complete":
                     state.baseline_return_s = round(sample_time_s, 3)
@@ -243,35 +252,18 @@ def run_trial(
 
         if rating_active:
             raw_x = stimuli.mouse.getPos()[0]
-            marker_x = max(-config.SLIDER_HALF_W, min(config.SLIDER_HALF_W, raw_x))
-            selected_rating = (marker_x + config.SLIDER_HALF_W) / (2 * config.SLIDER_HALF_W) * 10.0
+            if abs(raw_x - rating_start_x) > config.SLIDER_INTERACT_EPS:
+                rating_interacted = True
+            selected_rating, marker_x = _snap_rating(raw_x)
 
-            for key_name in _drain_key_names(
-                kb,
-                [*config.RATING_KEYS["confirm"], *config.QUIT_KEYS],
-            ):
-                if key_name in config.QUIT_KEYS:
-                    core.quit()
-                if key_name in config.RATING_KEYS["confirm"]:
-                    state.rating = round(selected_rating, 2)
-                    state.rating_rt_ms = round((now_s - rating_started_at) * 1000.0, 2)
-                    rating_active = False
-                    rating_complete = True
-                    break
-
-            if not rating_complete and stimuli.mouse.leftButtonPressed:
-                state.rating = round(selected_rating, 2)
-                state.rating_rt_ms = round((now_s - rating_started_at) * 1000.0, 2)
-                rating_active = False
-                rating_complete = True
-
-            if rating_active and now_s - rating_started_at >= config.RATING_TIMEOUT_S:
-                state.rating_timeout = 1
+            if now_s - rating_started_at >= config.RATING_TIMEOUT_S:
+                state.rating = selected_rating
+                state.rating_no_response = 0 if rating_interacted else 1
                 rating_active = False
                 rating_complete = True
 
             if rating_complete and not rating_active and view is not None:
-                view.on_rating(state.rating, state.rating_rt_ms, bool(state.rating_timeout))
+                view.on_rating(state.rating, bool(state.rating_no_response))
 
         if rating_active:
             display.draw_rating(stimuli, marker_x)
@@ -280,6 +272,11 @@ def run_trial(
         else:
             display.draw_crosshair(stimuli)
         win.flip()
+
+        # Heartbeat the console every frame so the "● Live" blink keeps pulsing
+        # even during gaps in MMS polling (throttled inside the view).
+        if view is not None:
+            view.tick()
 
         if state.detector.phase == "complete" and rating_complete:
             return recorder.BehaviorRecord(
@@ -291,8 +288,7 @@ def run_trial(
                 ramp_down_onset_s=state.ramp_down_onset_s,
                 baseline_return_s=state.baseline_return_s,
                 rating=state.rating,
-                rating_rt_ms=state.rating_rt_ms,
-                rating_timeout=state.rating_timeout,
+                rating_no_response=state.rating_no_response,
                 trial_end_s=round(time.monotonic() - task_start, 3),
                 sample_count=state.sample_count,
             ), trace_index
@@ -330,6 +326,16 @@ def _decode_return_code(code: int) -> str:
     }
     names = [name for flag, name in flag_bits.items() if code & int(flag)]
     return " | ".join(names) if names else f"UNKNOWN({code})"
+
+
+def _snap_rating(raw_x: float) -> tuple[int, float]:
+    """Snap a raw mouse x to an integer rating (1..10) and its marker x."""
+    clamped = max(-config.SLIDER_HALF_W, min(config.SLIDER_HALF_W, raw_x))
+    frac = (clamped + config.SLIDER_HALF_W) / (2 * config.SLIDER_HALF_W)
+    span = config.RATING_MAX - config.RATING_MIN
+    value = config.RATING_MIN + round(frac * span)
+    marker_x = -config.SLIDER_HALF_W + (value - config.RATING_MIN) / span * (2 * config.SLIDER_HALF_W)
+    return value, marker_x
 
 
 def _wait_for_key(kb: keyboard.Keyboard | None, key_list: list[str]) -> str:

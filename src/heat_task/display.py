@@ -187,11 +187,10 @@ def draw_rating(stimuli: Stimuli, marker_x: float) -> None:
 def draw_instruction_page(stimuli: Stimuli, text: str, *, is_last: bool) -> None:
     stimuli.instruction_text.text = text
     fwd = config.INSTRUCTION_KEYS["forward"][0]
-    bck = config.INSTRUCTION_KEYS["back"][0]
     stimuli.instruction_footer.text = (
         f"Press {fwd} to continue to the task."
         if is_last
-        else f"Press {fwd} to continue, {bck} to go back."
+        else f"Press {fwd} to continue."
     )
     stimuli.instruction_text.draw()
     stimuli.instruction_footer.draw()

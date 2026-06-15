@@ -19,6 +19,7 @@ core.checkPygletDuringWait = False
 from psychopy import gui, logging
 from psyexp_core import rundir, screen
 from rich.console import Console
+from rich.panel import Panel
 
 from heat_task import input as task_input
 
@@ -38,9 +39,16 @@ def run() -> None:
 
     rcon = Console(stderr=True)
     rcon.print(
-        "[yellow]In MMS, click 'Go to Test' and confirm the status reads "
-        "'External Control: TSA 2 is waiting for Test Program', "
-        "then press Enter to continue.[/yellow]"
+        Panel(
+            "[bold]1.[/bold] In MMS, click [bold]Go to Test[/bold]\n"
+            "[bold]2.[/bold] Confirm the status reads "
+            "[italic]'External Control: TSA 2 is waiting for Test Program'[/italic]\n"
+            "[bold]3.[/bold] Press [bold]Enter[/bold] here to continue",
+            title="[bold yellow]MMS Setup[/bold yellow]",
+            border_style="yellow",
+            expand=False,
+            padding=(1, 2),
+        )
     )
     input()
 
@@ -101,12 +109,23 @@ def run() -> None:
         gui.warnDlg(prompt=f"MMS rejected the program selection.\n\n{exc}")
         core.quit()
 
-    rcon.print(
-        f"[yellow]Press {config.START_KEYS[0]} in PsychoPy to send START to MMS.[/yellow]"
-    )
-
     if session_info.show_instructions:
         session.display_instructions(win, stimuli_obj, kb)
+
+    start_key = config.START_KEYS[0]
+    rcon.print(
+        Panel(
+            f"[bold]1.[/bold] In MMS, click [bold]Pre-test[/bold] "
+            "— [bold red]do NOT click Start[/bold red]\n"
+            f"[bold]2.[/bold] Press [bold]{start_key}[/bold] in the PsychoPy window when ready\n"
+            f"[dim]PsychoPy sends START automatically on [/dim][bold]{start_key}[/bold]"
+            "[dim], so both systems begin at the same time.[/dim]",
+            title="[bold green]Start the Run[/bold green]",
+            border_style="green",
+            expand=False,
+            padding=(1, 2),
+        )
+    )
 
     trial.wait_for_start(win, stimuli_obj, kb)
 

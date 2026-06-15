@@ -37,6 +37,10 @@ class MedocTransport:
         self._sock = socket.create_connection(
             (self.host, self.port), timeout=self.connect_timeout
         )
+        # Disable Nagle's algorithm: this is a small-message request/response
+        # protocol, and Nagle interacting with the peer's delayed ACKs causes
+        # intermittent 40–200 ms latency spikes in the status poll loop.
+        self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self._sock.settimeout(self.recv_timeout)
 
     def close(self) -> None:

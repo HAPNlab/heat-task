@@ -124,7 +124,7 @@ def display_instructions(
     core_instructions.page_through(
         win,
         config.INSTRUCTION_PAGES,
-        lambda page, is_last: draw_instruction_page(stimuli, page, is_last),
+        lambda page, is_last: draw_instruction_page(stimuli, page, is_last=is_last),
         forward_keys=config.INSTRUCTION_KEYS["forward"],
         back_keys=config.INSTRUCTION_KEYS["back"],
         quit_keys=config.QUIT_KEYS,
