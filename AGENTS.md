@@ -11,7 +11,7 @@ The Medoc TCP client is a **subpackage** at `src/heat_task/medoc/` (console scri
 - `protocol.py` — wire encoding/decoding (encode_command, decode_response)
 - `client.py` — high-level API (MedocClient with named methods per command)
 
-Task-agnostic experiment plumbing — screen/VSYNC setup, run manifest, CSV writers, setup-wizard primitives, instruction pager, keyboard abstraction — comes from the separate **`psyexp-core`** package (consumed via an editable path source in dev; see `[tool.uv.sources]` in `pyproject.toml`).
+Task-agnostic experiment plumbing — screen/VSYNC setup, run manifest, CSV writers, setup-wizard primitives, instruction pager, keyboard abstraction — comes from the separate **`psyexp-core`** package. `pyproject.toml` pins it to a git tag (`[tool.uv.sources]`) so clones reproduce exactly. For local co-development, set `UV_NO_SYNC=1` (export it in your shell, or use `uv run --no-sync`) and overlay `uv pip install -e ../psyexp-core` — that stops `uv run`'s auto-sync from reverting the editable install (and from removing the manually-installed Apple Silicon psychtoolbox). See README "Co-developing `psyexp-core` locally".
 
 ## Terminology
 

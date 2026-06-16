@@ -47,9 +47,26 @@ Run the PsychoPy ramp-and-hold task with:
 uv run heat-task
 ```
 
-> On Apple Silicon, psychtoolbox is installed manually (see `pyproject.toml`), and
-> `uv run` would otherwise remove it. Launch with `uv run --no-sync heat-task`
-> (or `export UV_NO_SYNC=1`) to keep the manual install.
+> **Heads up — `uv run` auto-syncs the venv from `uv.lock` on every launch.** That
+> sync will (a) revert a local editable `psyexp-core` back to the pinned git tag and
+> (b) remove the manually-installed Apple Silicon psychtoolbox wheel. Disable it by
+> setting `UV_NO_SYNC=1` — either `export UV_NO_SYNC=1` in your shell session or
+> prefix individual commands with `uv run --no-sync …`.
+
+### Co-developing `psyexp-core` locally
+
+The shared harness is pinned to a git tag in `pyproject.toml` so clones reproduce
+exactly. To work on it from the sibling checkout, overlay an editable install (it
+sticks as long as the re-sync that would revert it is skipped):
+
+```bash
+export UV_NO_SYNC=1                 # for this shell; required so the overlay sticks
+uv pip install -e ../psyexp-core    # one time
+uv run heat-task                    # uses your local core, edits are live
+```
+
+After changing *other* dependencies you'll need a manual `uv sync` (auto-sync is
+off) — that re-clobbers psyexp-core, so re-run the editable install above.
 
 The task reads a TOML run file from `conditions/`. Example:
 
