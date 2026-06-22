@@ -134,7 +134,6 @@ RATING_MAX = 10
 # the scale; large enough to ignore setPos/getPos jitter.
 SLIDER_INTERACT_EPS = 0.004
 
-SAVE_NET_EVENTS = False  # set True to write net_events_*.csv for network diagnostics
 
 INSTRUCTION_KEYS: dict[str, list[str]] = {
     "forward": ["1", "num_1"],

@@ -7,10 +7,21 @@ Wires the PsychoPy task modules together.
 
 from __future__ import annotations
 
+import argparse
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+# Parse before PsychoPy imports — PsychoPy registers its own argparser at import time,
+# so our parser must run first to own --help.
+_parser = argparse.ArgumentParser(prog="heat-task", description="Heat pain task runner")
+_parser.add_argument(
+    "--save-net-events",
+    action="store_true",
+    help="Write net_events_*.csv alongside behavioral data for network diagnostics",
+)
+_args, _ = _parser.parse_known_args()
 
 from psychopy import core
 
@@ -32,7 +43,6 @@ from heat_task.medoc.models import ReturnCode
 
 
 def run() -> None:
-    dev_mode = "--dev" in sys.argv
     session_info = session.show_dialog()
     run_config = load_run_config(session_info.run_file)
     session_time = datetime.now()
@@ -80,7 +90,7 @@ def run() -> None:
 
     stimuli_obj = display.build_stimuli(win)
     kb = task_input.build_keyboard()
-    win.mouseVisible = dev_mode  # show cursor in dev so mouse can simulate trackball
+    win.mouseVisible = False
 
     recorder.write_manifest(
         run_dir, session_info, session_time, run_config, frame_rate, screen_diag, win_res
@@ -139,7 +149,7 @@ def run() -> None:
     trace_writer = recorder.TraceWriter(run_dir / f"temperature_trace_{file_stem}.csv")
     net_event_writer = (
         recorder.NetEventWriter(run_dir / f"net_events_{file_stem}.csv")
-        if config.SAVE_NET_EVENTS
+        if _args.save_net_events
         else None
     )
 
