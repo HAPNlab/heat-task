@@ -1,22 +1,19 @@
-"""Session initialisation: setup wizard, last-connection persistence, and
-instruction presentation. Screen setup and run-directory creation now come from
-psyexp_core (see __main__)."""
+"""Terminal setup wizard: collects subject/connection/run-file info and
+remembers the last MMS connection between runs."""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 
-from psychopy.hardware import keyboard
-from psyexp_core import instructions as core_instructions
 from psyexp_core import wizard
 
-from heat_task import config
-from heat_task.conditions import conditions_dir
-from heat_task.display import Stimuli, draw_instruction_page
+from heat_task.io.conditions import conditions_dir
 from heat_task.medoc.transport import MedocTransport
 
-_LAST_CONNECTION_PATH = conditions_dir().parent / ".ramp_hold_last_connection.json"
+# Persisted under data/ (already git-ignored) rather than the repo root, so the
+# working tree stays clean. data/ is the project's per-run state directory.
+_LAST_CONNECTION_PATH = conditions_dir().parent / "data" / ".last_connection.json"
 
 _SUBJECT_PLACEHOLDER = "XXX000"
 
@@ -47,7 +44,7 @@ def _validate_run_file(text: str) -> bool | str:
     return True
 
 
-def show_dialog() -> SessionInfo:
+def run_wizard() -> SessionInfo:
     last_connection = _load_last_connection()
 
     subject_id = (
@@ -109,24 +106,8 @@ def _load_last_connection() -> dict[str, str | int]:
 def _save_last_connection(*, host: str, port: int) -> None:
     payload = {"host": host, "port": port}
     try:
+        _LAST_CONNECTION_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(_LAST_CONNECTION_PATH, "w") as handle:
             json.dump(payload, handle, indent=2)
     except OSError:
         return
-
-
-def display_instructions(
-    win,
-    stimuli: Stimuli,
-    kb: keyboard.Keyboard | None,
-) -> None:
-    """Page through the instruction screens via the shared harness pager."""
-    core_instructions.page_through(
-        win,
-        config.INSTRUCTION_PAGES,
-        lambda page, is_last: draw_instruction_page(stimuli, page, is_last=is_last),
-        forward_keys=config.INSTRUCTION_KEYS["forward"],
-        back_keys=config.INSTRUCTION_KEYS["back"],
-        quit_keys=config.QUIT_KEYS,
-        kb=kb,
-    )

@@ -16,8 +16,8 @@ from heat_task import config
 if TYPE_CHECKING:
     from psyexp_core.diagnostics import ScreenDiagnostics
 
-    from heat_task.conditions import RunConfig
-    from heat_task.session import SessionInfo
+    from heat_task.io.conditions import RunConfig
+    from heat_task.io.setup_wizard import SessionInfo
 
 
 @dataclass(frozen=True, slots=True)

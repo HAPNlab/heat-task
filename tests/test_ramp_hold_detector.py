@@ -1,15 +1,15 @@
-"""Tests for the ramp-and-hold temperature detector."""
+"""Tests for the ramp-and-hold phase tracker."""
 
 from __future__ import annotations
 
-from heat_task.conditions import TrialConfig
-from heat_task.detector import DetectorConfig, RampHoldDetector
+from heat_task.io.conditions import TrialConfig
+from heat_task.task.phase_tracker import PhaseTracker, PhaseTrackerConfig
 
 
 def test_detector_transitions_through_all_phases() -> None:
-    detector = RampHoldDetector(
+    tracker = PhaseTracker(
         TrialConfig(baseline=32.0, target_temp=45.0),
-        DetectorConfig(
+        PhaseTrackerConfig(
             smoothing_window=3,
             trend_window=3,
             consecutive_samples=2,
@@ -38,7 +38,11 @@ def test_detector_transitions_through_all_phases() -> None:
         32.0,
     ]
 
-    events = [update.event for update in (detector.update(value) for value in samples) if update.event]
+    events = [
+        update.event
+        for update in (tracker.update(value) for value in samples)
+        if update.event
+    ]
 
     assert events == ["ramp_up", "hold", "ramp_down", "complete"]
 
@@ -46,9 +50,9 @@ def test_detector_transitions_through_all_phases() -> None:
 def test_detector_completes_when_next_ramp_starts_before_baseline_return() -> None:
     """When temperature doesn't return to baseline before the next ramp, the detector
     should still transition to complete once the new upward ramp is detected."""
-    detector = RampHoldDetector(
+    tracker = PhaseTracker(
         TrialConfig(baseline=30.0, target_temp=45.0),
-        DetectorConfig(
+        PhaseTrackerConfig(
             smoothing_window=3,
             trend_window=3,
             consecutive_samples=2,
@@ -72,15 +76,19 @@ def test_detector_completes_when_next_ramp_starts_before_baseline_return() -> No
         35.0, 37.0, 39.0,    # rising more steeply
     ]
 
-    events = [update.event for update in (detector.update(value) for value in samples) if update.event]
+    events = [
+        update.event
+        for update in (tracker.update(value) for value in samples)
+        if update.event
+    ]
 
     assert events == ["ramp_up", "hold", "ramp_down", "complete"]
 
 
 def test_detector_ignores_small_hold_fluctuations() -> None:
-    detector = RampHoldDetector(
+    tracker = PhaseTracker(
         TrialConfig(baseline=32.0, target_temp=45.0),
-        DetectorConfig(
+        PhaseTrackerConfig(
             smoothing_window=3,
             trend_window=3,
             consecutive_samples=2,
@@ -93,6 +101,10 @@ def test_detector_ignores_small_hold_fluctuations() -> None:
     )
     samples = [32.0, 32.2, 32.5, 33.1, 44.8, 45.0, 45.1, 44.9, 45.0, 44.8, 45.1]
 
-    events = [update.event for update in (detector.update(value) for value in samples) if update.event]
+    events = [
+        update.event
+        for update in (tracker.update(value) for value in samples)
+        if update.event
+    ]
 
     assert events == ["ramp_up", "hold"]

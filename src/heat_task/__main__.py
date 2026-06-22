@@ -2,13 +2,13 @@
 
 """
 Entry point: `python -m heat_task` or `heat-task`.
-Wires the PsychoPy task modules together.
+Wires the PsychoPy task modules together; the work lives in heat_task.task and
+heat_task.io, so run() stays a readable top-to-bottom script of the run.
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -29,25 +29,42 @@ core.checkPygletDuringWait = False
 
 from psychopy import gui, logging
 from psyexp_core import rundir, screen
+from psyexp_core.keyboard import build_keyboard, configure_psychopy_backend
 from rich.console import Console
 from rich.panel import Panel
 
-from heat_task import input as task_input
+configure_psychopy_backend()
 
-task_input.configure_psychopy_backend()
-
-from heat_task import config, display, recorder, session, trial
-from heat_task.conditions import load_run_config
-from heat_task.console import TrialLiveView
+from heat_task import config
+from heat_task.io import recording
+from heat_task.io.conditions import RunConfig, load_run_config
+from heat_task.io.setup_wizard import SessionInfo, run_wizard
 from heat_task.medoc.models import ReturnCode
+from heat_task.task import display, instructions, mms
+from heat_task.task.console import TrialLiveView
+from heat_task.task.phases import run_end_screen, wait_for_start
+from heat_task.task.status import StatusPoller
+from heat_task.task.trial import TrialRuntime, run_trial
+
+# Frame rate is informational here (manifest + logging): trial timing is driven by
+# the Medoc temperature stream, not by counting frames. The VSYNC calibration can
+# occasionally report an implausibly high rate, so we fall back to a safe default
+# rather than record a bogus value. Genuine >200 Hz displays exist, but telling
+# them apart from a bad measurement isn't worth it for a value we only log.
+_FALLBACK_FRAME_RATE_HZ = 60.0
+_MAX_PLAUSIBLE_FRAME_RATE_HZ = 200.0
 
 
-def run() -> None:
-    session_info = session.show_dialog()
-    run_config = load_run_config(session_info.run_file)
-    session_time = datetime.now()
+def _resolve_frame_rate(calib_median_ms: float) -> float:
+    if not calib_median_ms:
+        return _FALLBACK_FRAME_RATE_HZ
+    rate = 1000.0 / calib_median_ms
+    if rate >= _MAX_PLAUSIBLE_FRAME_RATE_HZ:
+        return _FALLBACK_FRAME_RATE_HZ
+    return rate
 
-    rcon = Console(stderr=True)
+
+def _prompt_mms_setup(rcon: Console) -> None:
     rcon.print(
         Panel(
             "[bold]1.[/bold] In MMS, click [bold]Go to Test[/bold]\n"
@@ -62,10 +79,85 @@ def run() -> None:
     )
     input()
 
+
+def _verify_mms(
+    session_info: SessionInfo, run_config: RunConfig, win, rcon: Console
+) -> None:
+    """Select the program on the MMS, aborting the run with a dialog if the
+    thermode is unreachable or rejects the selection."""
+    try:
+        response = mms.send_command(
+            session_info.host,
+            session_info.port,
+            "select_test",
+            run_config.program_id,
+        )
+    except Exception as exc:
+        win.close()
+        gui.warnDlg(
+            prompt=f"Could not reach MMS at {session_info.host}:{session_info.port}\n\n{exc}"
+        )
+        core.quit()
+        return
+
+    try:
+        mms.require_ok(rcon, "MMS program selected", response)
+    except RuntimeError as exc:
+        win.close()
+        gui.warnDlg(prompt=f"MMS rejected the program selection.\n\n{exc}")
+        core.quit()
+
+
+def _make_writers(
+    run_dir: Path, file_stem: str
+) -> tuple[recording.BehaviorWriter, recording.TraceWriter, recording.NetEventWriter | None]:
+    behavior_writer = recording.BehaviorWriter(run_dir / f"behavioral_{file_stem}.csv")
+    trace_writer = recording.TraceWriter(run_dir / f"temperature_trace_{file_stem}.csv")
+    net_event_writer = (
+        recording.NetEventWriter(run_dir / f"net_events_{file_stem}.csv")
+        if _args.save_net_events
+        else None
+    )
+    return behavior_writer, trace_writer, net_event_writer
+
+
+def _run_trials(
+    runtime: TrialRuntime,
+    run_config: RunConfig,
+    view: TrialLiveView,
+    behavior_writer: recording.BehaviorWriter,
+) -> None:
+    trace_index = 0
+    # The previous trial's baseline-return time anchors when the next trial's
+    # ramp-up is expected (see _maybe_prime_ramp_up); None until the first trial
+    # completes, or whenever a baseline return wasn't detected.
+    prev_baseline_return_s: float | None = None
+    for trial_index, trial_config in enumerate(run_config.trials, start=1):
+        view.start_trial(trial_index, trial_config.baseline, trial_config.target_temp)
+        record, trace_index = run_trial(
+            runtime,
+            trial_n=trial_index,
+            trial_config=trial_config,
+            trace_index=trace_index,
+            initial_delay_s=run_config.initial_delay_s,
+            prev_baseline_return_s=prev_baseline_return_s,
+        )
+        behavior_writer.append(record)
+        prev_baseline_return_s = (
+            record.baseline_return_s if isinstance(record.baseline_return_s, float) else None
+        )
+
+
+def run() -> None:
+    session_info = run_wizard()
+    run_config = load_run_config(session_info.run_file)
+    session_time = datetime.now()
+
+    rcon = Console(stderr=True)
+    _prompt_mms_setup(rcon)
+
     win_res, win, screen_diag = screen.setup_screen(color=config.WINDOW_COLOR)
-    frame_rate = 1000.0 / screen_diag.calib_median_ms if screen_diag.calib_median_ms else 60.0
-    if frame_rate >= 200:
-        frame_rate = 60.0
+    frame_rate = _resolve_frame_rate(screen_diag.calib_median_ms)
 
     data_dir = Path("data")
     run_stem = Path(session_info.run_file).stem
@@ -89,38 +181,17 @@ def run() -> None:
     logging.exp(f"Frame rate: {frame_rate:.1f} Hz")
 
     stimuli_obj = display.build_stimuli(win)
-    kb = task_input.build_keyboard()
+    kb = build_keyboard()
     win.mouseVisible = False
 
-    recorder.write_manifest(
+    recording.write_manifest(
         run_dir, session_info, session_time, run_config, frame_rate, screen_diag, win_res
     )
 
-    # Verify MMS is reachable before showing any task UI.
-    try:
-        response = trial.send_command(
-            session_info.host,
-            session_info.port,
-            "select_test",
-            run_config.program_id,
-        )
-    except Exception as exc:
-        win.close()
-        gui.warnDlg(
-            prompt=f"Could not reach MMS at {session_info.host}:{session_info.port}\n\n{exc}"
-        )
-        core.quit()
-        return
-
-    try:
-        trial.require_ok(rcon, "MMS program selected", response)
-    except RuntimeError as exc:
-        win.close()
-        gui.warnDlg(prompt=f"MMS rejected the program selection.\n\n{exc}")
-        core.quit()
+    _verify_mms(session_info, run_config, win, rcon)
 
     if session_info.show_instructions:
-        session.display_instructions(win, stimuli_obj, kb)
+        instructions.display_instructions(win, stimuli_obj, kb)
 
     start_key = config.START_KEYS[0]
     rcon.print(
@@ -137,54 +208,36 @@ def run() -> None:
         )
     )
 
-    trial.wait_for_start(win, stimuli_obj, kb)
+    wait_for_start(win, stimuli_obj, kb)
 
-    start_response = trial.send_command(session_info.host, session_info.port, "start")
-    if start_response is not None and start_response.return_code != int(ReturnCode.OK):
+    start_response = mms.send_command(session_info.host, session_info.port, "start")
+    if start_response is not None and start_response.return_code != ReturnCode.OK:
         raise RuntimeError(f"MMS START failed with return code {start_response.return_code}")
 
     task_start = time.monotonic()
     file_stem = f"{session_info.subject_id}_{Path(session_info.run_file).stem}"
-    behavior_writer = recorder.BehaviorWriter(run_dir / f"behavioral_{file_stem}.csv")
-    trace_writer = recorder.TraceWriter(run_dir / f"temperature_trace_{file_stem}.csv")
-    net_event_writer = (
-        recorder.NetEventWriter(run_dir / f"net_events_{file_stem}.csv")
-        if _args.save_net_events
-        else None
-    )
+    behavior_writer, trace_writer, net_event_writer = _make_writers(run_dir, file_stem)
 
-    poller = trial.StatusPoller(session_info.host, session_info.port)
-    trace_index = 0
-    prev_baseline_return_s: float | None = None
+    poller = StatusPoller(session_info.host, session_info.port)
     poller.start()
     try:
         with TrialLiveView(rcon, len(run_config.trials)) as view:
-            for trial_index, trial_config in enumerate(run_config.trials, start=1):
-                view.start_trial(trial_index, trial_config.baseline, trial_config.target_temp)
-                record, trace_index = trial.run_trial(
-                    win=win,
-                    stimuli=stimuli_obj,
-                    kb=kb,
-                    task_start=task_start,
-                    trial_n=trial_index,
-                    trial_config=trial_config,
-                    trace_index=trace_index,
-                    trace_writer=trace_writer,
-                    net_event_writer=net_event_writer,
-                    poller=poller,
-                    initial_delay_s=run_config.initial_delay_s,
-                    prev_baseline_return_s=prev_baseline_return_s,
-                    view=view,
-                )
-                behavior_writer.append(record)
-                prev_baseline_return_s = (
-                    record.baseline_return_s
-                    if isinstance(record.baseline_return_s, float)
-                    else None
-                )
+            runtime = TrialRuntime(
+                win=win,
+                stimuli=stimuli_obj,
+                kb=kb,
+                task_start=task_start,
+                trace_writer=trace_writer,
+                net_event_writer=net_event_writer,
+                poller=poller,
+                view=view,
+            )
+            _run_trials(runtime, run_config, view, behavior_writer)
 
         rcon.print("[bold green]Run complete[/bold green]")
-        trial.run_end_screen(win, stimuli_obj, kb)
+        exit_key = config.END_KEYS[0]
+        rcon.print(f"[bold yellow]Press '{exit_key}' to exit the experiment...[/bold yellow]")
+        run_end_screen(win, stimuli_obj, kb)
     finally:
         poller.stop()
         behavior_writer.close()

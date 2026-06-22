@@ -29,7 +29,5 @@ htmlcov/
 # Logs
 *.log
 
-# Ramp-hold local session state
-.ramp_hold_last_connection.json
-
+# Run outputs and local session state (last-connection lives in data/)
 data/

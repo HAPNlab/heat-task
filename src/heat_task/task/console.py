@@ -193,6 +193,9 @@ class TrialLiveView:
 
     def _refresh(self, force: bool = False) -> None:
         now = time.monotonic()
+        # Not a wait — a throttle. We return immediately (no sleep, nothing
+        # blocks) when the last repaint was under _MIN_REFRESH_INTERVAL_S ago, so
+        # bursts of samples coalesce into a steady redraw rate without flicker.
         if not force and now - self._last_refresh_t < _MIN_REFRESH_INTERVAL_S:
             return
         self._last_refresh_t = now

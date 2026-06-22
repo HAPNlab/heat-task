@@ -24,7 +24,7 @@ class RunConfig:
     initial_delay_s: float | None = None
 
 
-_PACKAGE_DIR = Path(__file__).parent  # src/heat_task
+_PACKAGE_DIR = Path(__file__).parent.parent  # src/heat_task (this file lives in io/)
 _PROJECT_ROOT = _PACKAGE_DIR.parent.parent  # src/heat_task -> src -> project root
 _CONDITIONS_DIR = _PROJECT_ROOT / "conditions"
 
@@ -87,16 +87,24 @@ def load_run_config(path_value: str | Path) -> RunConfig:
 
         if target_temp <= baseline:
             raise ValueError(
-                f"trial {index}: target_temp ({target_temp}) must be greater than baseline ({baseline})"
+                f"trial {index}: target_temp ({target_temp}) must be greater than "
+                f"baseline ({baseline})"
             )
 
         raw_baseline_dur = raw_trial.get("baseline_duration_s")
         raw_hold_dur = raw_trial.get("target_hold_duration_s")
         try:
-            trial_baseline_dur: float | None = float(raw_baseline_dur) if raw_baseline_dur is not None else None
-            trial_hold_dur: float | None = float(raw_hold_dur) if raw_hold_dur is not None else None
+            trial_baseline_dur: float | None = (
+                float(raw_baseline_dur) if raw_baseline_dur is not None else None
+            )
+            trial_hold_dur: float | None = (
+                float(raw_hold_dur) if raw_hold_dur is not None else None
+            )
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"trial {index}: baseline_duration_s and target_hold_duration_s must be numeric") from exc
+            raise ValueError(
+                f"trial {index}: baseline_duration_s and target_hold_duration_s "
+                "must be numeric"
+            ) from exc
 
         trials.append(TrialConfig(
             baseline=baseline,

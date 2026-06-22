@@ -32,9 +32,9 @@ RECONNECT_BACKOFF_S = 0.05
 RECONNECT_BACKOFF_MAX_S = 1.0
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase detector  (see detector.py)
+# Phase tracker  (see task/phase_tracker.py)
 # ─────────────────────────────────────────────────────────────────────────────
-# The detector watches the temperature stream and walks a 5-state machine across
+# The tracker watches the temperature stream and walks a 5-state machine across
 # the ramp-and-hold profile. It never sees the thermode's command schedule — it
 # infers each transition purely from the measured curve. The constants below are
 # the thresholds for those inferences.
@@ -90,7 +90,7 @@ MIN_SLOPE_PER_SAMPLE = 0.03  # °C/sample slope needed to count as trending
 
 # ── Primed overrides ─────────────────────────────────────────────────────────
 # When we *know* a transition is imminent (within PRIME_WINDOW_S of the scheduled
-# event), the detector swaps to these tighter, twitchier values so it reacts to
+# event), the tracker swaps to these tighter, twitchier values so it reacts to
 # the real change fast instead of waiting out the conservative debounce. Same
 # meanings as above — just smaller windows and thresholds for higher sensitivity.
 PRIME_WINDOW_S = 3.0  # how far ahead of a scheduled event the prime kicks in

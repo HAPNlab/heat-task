@@ -8,14 +8,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from heat_task.conditions import RunConfig, TrialConfig
-from heat_task.recorder import (
+from heat_task.io.conditions import RunConfig, TrialConfig
+from heat_task.io.recording import (
     BEHAVIOR_COLUMNS,
     BehaviorRecord,
     BehaviorWriter,
     write_manifest,
 )
-from heat_task.session import SessionInfo
+from heat_task.io.setup_wizard import SessionInfo
 
 
 @dataclass

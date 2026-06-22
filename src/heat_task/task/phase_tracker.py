@@ -1,4 +1,9 @@
-"""Temperature-only phase detector for the ramp-and-hold task."""
+"""Infers the current ramp-and-hold phase from the temperature stream alone.
+
+The tracker never sees the thermode's command schedule; it walks a five-state
+machine (baseline → ramp_up → hold → ramp_down → complete) purely from the
+measured curve. See config.py for the thresholds and the state diagram.
+"""
 
 from __future__ import annotations
 
@@ -6,11 +11,11 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from heat_task import config
-from heat_task.conditions import TrialConfig
+from heat_task.io.conditions import TrialConfig
 
 
 @dataclass(frozen=True, slots=True)
-class DetectorConfig:
+class PhaseTrackerConfig:
     smoothing_window: int = config.SMOOTHING_WINDOW
     trend_window: int = config.TREND_WINDOW
     consecutive_samples: int = config.CONSECUTIVE_SAMPLES
@@ -21,7 +26,7 @@ class DetectorConfig:
     min_slope_per_sample: float = config.MIN_SLOPE_PER_SAMPLE
 
     @classmethod
-    def primed(cls) -> DetectorConfig:
+    def primed(cls) -> PhaseTrackerConfig:
         return cls(
             smoothing_window=config.PRIMED_SMOOTHING_WINDOW,
             trend_window=config.PRIMED_TREND_WINDOW,
@@ -33,7 +38,7 @@ class DetectorConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class DetectorUpdate:
+class PhaseUpdate:
     raw_temperature: float
     smoothed_temperature: float
     phase: str
@@ -42,9 +47,9 @@ class DetectorUpdate:
 
 
 @dataclass(slots=True)
-class RampHoldDetector:
+class PhaseTracker:
     trial: TrialConfig
-    config: DetectorConfig = field(default_factory=DetectorConfig)
+    config: PhaseTrackerConfig = field(default_factory=PhaseTrackerConfig)
     phase: str = field(init=False, default="baseline")
     _window: deque[float] = field(init=False)
     _slopes: deque[float] = field(init=False)
@@ -57,14 +62,14 @@ class RampHoldDetector:
         self._slopes = deque(maxlen=self.config.trend_window)
         self._peak_temperature = self.trial.baseline
 
-    def prime(self, primed_config: DetectorConfig) -> None:
+    def prime(self, primed_config: PhaseTrackerConfig) -> None:
         """Switch to tighter detection params ahead of an expected transition."""
         self._window = deque(self._window, maxlen=primed_config.smoothing_window)
         self._slopes = deque(self._slopes, maxlen=primed_config.trend_window)
         self.config = primed_config
         self._gates.clear()
 
-    def update(self, raw_temperature: float) -> DetectorUpdate:
+    def update(self, raw_temperature: float) -> PhaseUpdate:
         self._window.append(raw_temperature)
         smoothed = sum(self._window) / len(self._window)
 
@@ -111,7 +116,7 @@ class RampHoldDetector:
                 transitioned = True
                 event = "complete"
 
-        return DetectorUpdate(
+        return PhaseUpdate(
             raw_temperature=raw_temperature,
             smoothed_temperature=smoothed,
             phase=self.phase,

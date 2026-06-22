@@ -40,7 +40,11 @@ class TestState(IntEnum):
 
 
 class ReturnCode(IntEnum):
-    """Result code returned by MMS after each command."""
+    """Result code returned by MMS after each command.
+
+    The non-zero codes are bit flags that can combine, so a raw value is decoded
+    with :meth:`describe` rather than a plain ``ReturnCode(value)`` lookup.
+    """
     OK = 0
     ILLEGAL_ARG = 1
     ILLEGAL_STATE = 2
@@ -48,6 +52,16 @@ class ReturnCode(IntEnum):
     DEVICE_COMM_ERROR = 4096
     SAFETY_WARNING = 8192
     SAFETY_ERROR = 16384
+
+    @staticmethod
+    def describe(code: int) -> str:
+        """Decode a bitfield return code into human-readable flag names."""
+        flags = [
+            member.name
+            for member in ReturnCode
+            if member is not ReturnCode.OK and code & int(member)
+        ]
+        return " | ".join(flags) if flags else f"UNKNOWN({code})"
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from heat_task.conditions import load_run_config, parse_program_word
+from heat_task.io.conditions import load_run_config, parse_program_word
 
 
 def test_parse_program_word_accepts_8_bit_string() -> None:
@@ -21,17 +21,17 @@ def test_parse_program_word_rejects_invalid_strings() -> None:
 def test_load_run_config_parses_trials(tmp_path: Path) -> None:
     run_file = tmp_path / "run.toml"
     run_file.write_text(
-        '\n'.join(
+        "\n".join(
             [
                 'program_word = "00001111"',
-                '',
-                '[[trial]]',
-                'baseline = 32.0',
-                'target_temp = 45.0',
-                '',
-                '[[trial]]',
-                'baseline = 31.5',
-                'target_temp = 44.5',
+                "",
+                "[[trial]]",
+                "baseline = 32.0",
+                "target_temp = 45.0",
+                "",
+                "[[trial]]",
+                "baseline = 31.5",
+                "target_temp = 44.5",
             ]
         )
     )
@@ -47,13 +47,13 @@ def test_load_run_config_parses_trials(tmp_path: Path) -> None:
 def test_load_run_config_rejects_target_below_baseline(tmp_path: Path) -> None:
     run_file = tmp_path / "run.toml"
     run_file.write_text(
-        '\n'.join(
+        "\n".join(
             [
                 'program_word = "00001111"',
-                '',
-                '[[trial]]',
-                'baseline = 40.0',
-                'target_temp = 39.5',
+                "",
+                "[[trial]]",
+                "baseline = 40.0",
+                "target_temp = 39.5",
             ]
         )
     )

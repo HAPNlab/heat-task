@@ -8,7 +8,12 @@ from unittest.mock import patch
 import pytest
 
 from heat_task.medoc.models import Command
-from heat_task.medoc.protocol import RESPONSE_FORMAT, RESPONSE_HEADER_SIZE, decode_response, encode_command
+from heat_task.medoc.protocol import (
+    RESPONSE_FORMAT,
+    RESPONSE_HEADER_SIZE,
+    decode_response,
+    encode_command,
+)
 
 _FIXED_TS = 1_000_000
 
