@@ -177,7 +177,11 @@ def run() -> None:
                     view=view,
                 )
                 behavior_writer.append(record)
-                prev_baseline_return_s = record.baseline_return_s if isinstance(record.baseline_return_s, float) else None
+                prev_baseline_return_s = (
+                    record.baseline_return_s
+                    if isinstance(record.baseline_return_s, float)
+                    else None
+                )
 
         rcon.print("[bold green]Run complete[/bold green]")
         trial.run_end_screen(win, stimuli_obj, kb)

@@ -234,8 +234,15 @@ def run_trial(
                 if now_s >= initial_delay_s - config.PRIME_WINDOW_S:
                     state.detector.prime(DetectorConfig.primed())
                     ramp_up_primed = True
-            elif trial_config.baseline_duration_s is not None and prev_baseline_return_s is not None:
-                if now_s >= prev_baseline_return_s + trial_config.baseline_duration_s - config.PRIME_WINDOW_S:
+            elif (
+                trial_config.baseline_duration_s is not None and prev_baseline_return_s is not None
+            ):
+                if (
+                    now_s
+                    >= prev_baseline_return_s
+                    + trial_config.baseline_duration_s
+                    - config.PRIME_WINDOW_S
+                ):
                     state.detector.prime(DetectorConfig.primed())
                     ramp_up_primed = True
 
@@ -244,7 +251,8 @@ def run_trial(
             and state.detector.phase == "hold"
             and trial_config.target_hold_duration_s is not None
             and isinstance(state.hold_onset_s, float)
-            and now_s >= state.hold_onset_s + trial_config.target_hold_duration_s - config.PRIME_WINDOW_S
+            and now_s
+            >= state.hold_onset_s + trial_config.target_hold_duration_s - config.PRIME_WINDOW_S
         ):
             state.detector.prime(DetectorConfig.primed())
             ramp_down_primed = True
@@ -392,7 +400,9 @@ def _snap_rating(raw_x: float) -> tuple[int, float]:
     frac = (clamped + config.SLIDER_HALF_W) / (2 * config.SLIDER_HALF_W)
     span = config.RATING_MAX - config.RATING_MIN
     value = config.RATING_MIN + round(frac * span)
-    marker_x = -config.SLIDER_HALF_W + (value - config.RATING_MIN) / span * (2 * config.SLIDER_HALF_W)
+    marker_x = -config.SLIDER_HALF_W + (value - config.RATING_MIN) / span * (
+        2 * config.SLIDER_HALF_W
+    )
     return value, marker_x
 
 
