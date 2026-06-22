@@ -7,6 +7,7 @@ import argparse
 import signal
 import sys
 import time
+from typing import Literal, overload
 
 from heat_task.medoc.cli.formatting import (
     accept_command_response,
@@ -19,6 +20,10 @@ from heat_task.medoc.models import MedocResponse, TestState
 CommandCall = str | tuple[str, int]
 
 
+@overload
+def selected_program_id(args: argparse.Namespace, *, required: Literal[True]) -> int: ...
+@overload
+def selected_program_id(args: argparse.Namespace, *, required: Literal[False]) -> int | None: ...
 def selected_program_id(args: argparse.Namespace, *, required: bool) -> int | None:
     if args.program_id is not None and args.program_word is not None:
         raise ValueError("use either program_id or --program-word, not both")

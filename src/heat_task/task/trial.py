@@ -1,4 +1,8 @@
-"""One-trial runtime for the ramp-and-hold task.
+"""Trial runtime for the ramp-and-hold task.
+
+run_trials() walks the run's trial schedule, threading the carry-over state
+(continuous trace numbering and the previous baseline-return time) between
+trials and writing each behavioural record.
 
 run_trial() drives a single trial's render loop: it primes the phase tracker
 ahead of scheduled transitions, drains Medoc status samples (writing the
@@ -7,21 +11,20 @@ returns the trial's behavioural record.
 
 Prop drilling is kept in check with TrialRuntime: the dependencies that are
 constant for the whole run (window, stimuli, keyboard, writers, poller, view,
-task clock origin) are bundled once and passed as a single object, so only the
+run clock) are bundled once and passed as a single object, so only the
 genuinely per-trial values stay as keyword arguments.
 """
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 
-from psychopy import visual
+from psychopy import core, visual
 from psychopy.hardware import keyboard
 
 from heat_task import config
 from heat_task.io import recording
-from heat_task.io.conditions import TrialConfig
+from heat_task.io.conditions import RunConfig, TrialConfig
 from heat_task.task import display
 from heat_task.task.console import TrialLiveView
 from heat_task.task.phase_tracker import PhaseTracker, PhaseTrackerConfig
@@ -37,7 +40,7 @@ class TrialRuntime:
     win: visual.Window
     stimuli: display.Stimuli
     kb: keyboard.Keyboard | None
-    task_start: float
+    clock: core.Clock  # reads 0 at START; getTime() is already task-relative seconds
     trace_writer: recording.TraceWriter
     net_event_writer: recording.NetEventWriter | None
     poller: StatusPoller
@@ -56,12 +59,43 @@ class TrialState:
     sample_count: int = 0
 
 
+def run_trials(
+    runtime: TrialRuntime,
+    run_config: RunConfig,
+    view: TrialLiveView,
+    behavior_writer: recording.BehaviorWriter,
+) -> None:
+    """Run every trial in the schedule, carrying state between them."""
+    # Running total of temperature-trace rows written; carried across trials so
+    # the trace's sample_n column numbers continuously instead of resetting each
+    # trial.
+    trace_sample_count = 0
+    # The previous trial's baseline-return time anchors when the next trial's
+    # ramp-up is expected (see _maybe_prime_ramp_up); None until the first trial
+    # completes, or whenever a baseline return wasn't detected.
+    prev_baseline_return_s: float | None = None
+    for trial_index, trial_config in enumerate(run_config.trials, start=1):
+        view.start_trial(trial_index, trial_config.baseline, trial_config.target_temp)
+        record, trace_sample_count = run_trial(
+            runtime,
+            trial_n=trial_index,
+            trial_config=trial_config,
+            trace_sample_count=trace_sample_count,
+            initial_delay_s=run_config.initial_delay_s,
+            prev_baseline_return_s=prev_baseline_return_s,
+        )
+        behavior_writer.append(record)
+        prev_baseline_return_s = (
+            record.baseline_return_s if isinstance(record.baseline_return_s, float) else None
+        )
+
+
 def run_trial(
     runtime: TrialRuntime,
     *,
     trial_n: int,
     trial_config: TrialConfig,
-    trace_index: int,
+    trace_sample_count: int,
     initial_delay_s: float | None = None,
     prev_baseline_return_s: float | None = None,
 ) -> tuple[recording.BehaviorRecord, int]:
@@ -76,7 +110,7 @@ def run_trial(
     ramp_down_primed = False
 
     while True:
-        now_s = time.monotonic() - runtime.task_start
+        now_s = runtime.clock.getTime()
 
         if not ramp_up_primed:
             ramp_up_primed = _maybe_prime_ramp_up(
@@ -85,7 +119,7 @@ def run_trial(
         if not ramp_down_primed:
             ramp_down_primed = _maybe_prime_ramp_down(state, now_s)
 
-        trace_index = _drain_samples(runtime, state, rating, trace_index)
+        trace_sample_count = _drain_samples(runtime, state, rating, trace_sample_count)
         _drain_net_events(runtime)
 
         check_quit(runtime.kb)
@@ -100,7 +134,8 @@ def run_trial(
             runtime.view.tick()
 
         if state.tracker.phase == "complete" and rating.complete:
-            return _build_record(state, trial_config, runtime.task_start, rating), trace_index
+            record = _build_record(state, trial_config, runtime.clock, rating)
+            return record, trace_sample_count
 
 
 def _maybe_prime_ramp_up(
@@ -148,13 +183,17 @@ def _drain_samples(
     runtime: TrialRuntime,
     state: TrialState,
     rating: RatingController,
-    trace_index: int,
+    trace_sample_count: int,
 ) -> int:
     """Process every queued status sample: update the tracker, record onsets and
-    the temperature trace, and arm the rating slider on ramp-down."""
+    the temperature trace, and arm the rating slider on ramp-down.
+
+    trace_sample_count is the running total of trace rows written so far across
+    all trials; it carries across trials so sample_n numbers the trace
+    continuously rather than restarting each trial."""
     for sample in runtime.poller.drain():
-        trace_index += 1
-        sample_time_s = sample.monotonic_time - runtime.task_start
+        trace_sample_count += 1
+        sample_time_s = sample.time_s
         update = state.tracker.update(sample.temperature)
         state.sample_count += 1
         if runtime.view is not None:
@@ -165,7 +204,7 @@ def _drain_samples(
 
         runtime.trace_writer.append(
             recording.TraceSample(
-                sample_n=trace_index,
+                sample_n=trace_sample_count,
                 time_s=round(sample_time_s, 6),
                 trial_n=state.trial_n,
                 baseline=state.trial.baseline,
@@ -181,7 +220,7 @@ def _drain_samples(
                 rtt_ms=round(sample.rtt_ms, 3),
             )
         )
-    return trace_index
+    return trace_sample_count
 
 
 def _record_transition(
@@ -207,7 +246,7 @@ def _drain_net_events(runtime: TrialRuntime) -> None:
         if runtime.net_event_writer is not None:
             runtime.net_event_writer.append(
                 recording.NetEventRecord(
-                    time_s=round(event.monotonic_time - runtime.task_start, 6),
+                    time_s=round(event.time_s, 6),
                     cause=event.cause,
                     detail=event.detail,
                     gap_s=round(event.gap_s, 4),
@@ -230,7 +269,7 @@ def _draw_frame(runtime: TrialRuntime, state: TrialState, rating: RatingControll
 def _build_record(
     state: TrialState,
     trial_config: TrialConfig,
-    task_start: float,
+    clock: core.Clock,
     rating: RatingController,
 ) -> recording.BehaviorRecord:
     return recording.BehaviorRecord(
@@ -243,6 +282,6 @@ def _build_record(
         baseline_return_s=state.baseline_return_s,
         rating=rating.rating,
         rating_no_response=rating.no_response,
-        trial_end_s=round(time.monotonic() - task_start, 3),
+        trial_end_s=round(clock.getTime(), 3),
         sample_count=state.sample_count,
     )

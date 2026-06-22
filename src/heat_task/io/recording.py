@@ -34,9 +34,12 @@ class BehaviorRecord:
     trial_end_s: float
     sample_count: int
 
-
 @dataclass(frozen=True, slots=True)
 class TraceSample:
+    """One row of the temperature trace: a single Medoc status sample polled
+    during a trial, enriched with the phase/event the tracker derived from it.
+    One is written per poll, so the trace is the run sampled at the poll rate."""
+
     sample_n: int
     time_s: float
     trial_n: int
@@ -128,6 +131,19 @@ class NetEventWriter(CsvWriter):
 
     def append(self, record: NetEventRecord) -> None:  # type: ignore[override]
         super().append(record)
+
+
+def make_writers(
+    run_dir: Path, file_stem: str, *, save_net_events: bool
+) -> tuple[BehaviorWriter, TraceWriter, NetEventWriter | None]:
+    """Open the per-run CSV writers; the net-event writer is created only when
+    network diagnostics were requested."""
+    behavior_writer = BehaviorWriter(run_dir / f"behavioral_{file_stem}.csv")
+    trace_writer = TraceWriter(run_dir / f"temperature_trace_{file_stem}.csv")
+    net_event_writer = (
+        NetEventWriter(run_dir / f"net_events_{file_stem}.csv") if save_net_events else None
+    )
+    return behavior_writer, trace_writer, net_event_writer
 
 
 def _heat_task_version() -> str:

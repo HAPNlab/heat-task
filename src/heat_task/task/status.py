@@ -12,19 +12,22 @@ import threading
 import time
 from dataclasses import dataclass
 
+from psychopy import core
+
 from heat_task import config
 from heat_task.medoc.client import MedocClient
 
-# Timestamps here use time.monotonic() rather than a psychopy core.Clock on
-# purpose: this is a free-running background thread, and core.monotonicClock is
-# itself a thin offset over time.monotonic(). Coupling the poller to PsychoPy's
-# global clock would add a dependency without changing the numbers, and the task
-# loop converts these stamps to a task-relative origin (task_start) anyway.
+# Timestamps here come from the shared run clock (a core.Clock reset at START),
+# the same object the trial loop reads. getTime() is therefore already relative to
+# START, so the time_s stamped here lands directly in the trace's time_s and the
+# behavioral onset_s columns with no further arithmetic. The clock is a plain
+# Python object shared across threads; reads are atomic enough for our purposes.
+# (time.sleep below is just a pacing wait, not a timestamp, so it stays on stdlib.)
 
 
 @dataclass(frozen=True, slots=True)
 class StatusSample:
-    monotonic_time: float
+    time_s: float
     temperature: float
     system_state: int
     test_state: int
@@ -37,16 +40,17 @@ class NetEvent:
     """A status-poll failure that produced no sample, with its cause and the gap
     since the last good sample. Lets the trace's silent gaps be explained."""
 
-    monotonic_time: float
+    time_s: float
     cause: str  # "recv_timeout" | "status_error" | "connect_failure"
     detail: str
     gap_s: float
 
 
 class StatusPoller:
-    def __init__(self, host: str, port: int) -> None:
+    def __init__(self, host: str, port: int, clock: core.Clock) -> None:
         self._host = host
         self._port = port
+        self._clock = clock
         self._stop_event = threading.Event()
         self._queue: queue.SimpleQueue[StatusSample] = queue.SimpleQueue()
         self._events: queue.SimpleQueue[NetEvent] = queue.SimpleQueue()
@@ -81,10 +85,10 @@ class StatusPoller:
         # second poll see the expected close and look like a failure.) On a
         # healthy LAN a connect costs a few ms; a connect that stalls or fails is
         # the real source of the rare multi-hundred-ms / ~1 s lag spikes.
-        last_good = time.monotonic()  # for the gap_s reported on failures
+        last_good = self._clock.getTime()  # for the gap_s reported on failures
         backoff = config.RECONNECT_BACKOFF_S
         while not self._stop_event.is_set():
-            connect_start = time.monotonic()
+            connect_start = self._clock.getTime()
             try:
                 client = MedocClient.connect(
                     self._host,
@@ -93,10 +97,10 @@ class StatusPoller:
                     recv_timeout=config.POLL_RECV_TIMEOUT_S,
                 )
             except Exception as exc:
-                now = time.monotonic()
+                now = self._clock.getTime()
                 self._events.put(
                     NetEvent(
-                        monotonic_time=now,
+                        time_s=now,
                         cause="connect_failure",
                         detail=f"{type(exc).__name__}: {exc} "
                         f"(connect took {(now - connect_start) * 1000.0:.0f}ms)",
@@ -110,7 +114,7 @@ class StatusPoller:
                 continue
             backoff = config.RECONNECT_BACKOFF_S
 
-            sample_time = time.monotonic()
+            sample_time = self._clock.getTime()
             try:
                 response, cause, detail = client.poll_status()
             except Exception as exc:  # send error, etc.
@@ -119,10 +123,10 @@ class StatusPoller:
                 client.close()  # the MMS closes after one response regardless
 
             if response is None:
-                now = time.monotonic()
+                now = self._clock.getTime()
                 self._events.put(
                     NetEvent(
-                        monotonic_time=now,
+                        time_s=now,
                         cause=cause,
                         detail=detail,
                         gap_s=now - last_good,
@@ -130,10 +134,10 @@ class StatusPoller:
                 )
                 continue
 
-            last_good = time.monotonic()
+            last_good = self._clock.getTime()
             self._queue.put(
                 StatusSample(
-                    monotonic_time=sample_time,
+                    time_s=sample_time,
                     temperature=response.temperature,
                     system_state=response.system_state,
                     test_state=response.test_state,

@@ -1,11 +1,11 @@
 """Rich live-view table for the ramp-and-hold trial loop."""
 from __future__ import annotations
 
-import time
 from collections import deque
 from dataclasses import dataclass
 
 import rich.box
+from psychopy import core
 from rich.console import Console, Group
 from rich.live import Live
 from rich.table import Table
@@ -99,7 +99,7 @@ class TrialLiveView:
         self._temp: float | None = None
         self._phase: str = ""
         self._blink_on = True
-        self._blink_t = time.monotonic()
+        self._blink_t = core.monotonicClock.getTime()
         self._last_refresh_t = 0.0
         self._last_sample_t: float | None = None
         self._latency_window: deque[tuple[float, float]] = deque()
@@ -124,7 +124,7 @@ class TrialLiveView:
     def on_sample(self, temperature: float, phase: str, latency_ms: float) -> None:
         if self._current is None:
             return
-        now = time.monotonic()
+        now = core.monotonicClock.getTime()
         self._latency_window.append((now, latency_ms))
         self._last_sample_t = now
         self._temp = temperature
@@ -154,7 +154,7 @@ class TrialLiveView:
         self._refresh(force=True)
 
     def _render_status(self) -> Text:
-        now = time.monotonic()
+        now = core.monotonicClock.getTime()
         if now - self._blink_t >= _BLINK_INTERVAL_S:
             self._blink_on = not self._blink_on
             self._blink_t = now
@@ -192,7 +192,7 @@ class TrialLiveView:
         return chip
 
     def _refresh(self, force: bool = False) -> None:
-        now = time.monotonic()
+        now = core.monotonicClock.getTime()
         # Not a wait — a throttle. We return immediately (no sleep, nothing
         # blocks) when the last repaint was under _MIN_REFRESH_INTERVAL_S ago, so
         # bursts of samples coalesce into a steady redraw rate without flicker.

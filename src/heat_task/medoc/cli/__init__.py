@@ -24,8 +24,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return args.func(args)
     except ValueError as exc:
+        # parser.error() prints usage and raises SystemExit(2); it never returns,
+        # so this except arm has no reachable fall-through.
         parser.error(str(exc))
-        return 2
 
 
 if __name__ == "__main__":
