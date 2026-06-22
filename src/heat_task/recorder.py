@@ -50,6 +50,21 @@ class TraceSample:
     system_state: int
     test_state: int
     test_time_ms: int
+    rtt_ms: float
+
+
+@dataclass(frozen=True, slots=True)
+class NetEventRecord:
+    """A status-poll failure (timeout, decode error, or reconnect failure).
+
+    Emitted when a poll produces no temperature sample, so the otherwise
+    unexplained gaps in the temperature trace can be attributed after the fact.
+    """
+
+    time_s: float
+    cause: str
+    detail: str
+    gap_s: float
 
 
 BEHAVIOR_COLUMNS = [
@@ -80,6 +95,14 @@ TRACE_COLUMNS = [
     "system_state",
     "test_state",
     "test_time_ms",
+    "rtt_ms",
+]
+
+NET_EVENT_COLUMNS = [
+    "time_s",
+    "cause",
+    "detail",
+    "gap_s",
 ]
 
 
@@ -96,6 +119,14 @@ class TraceWriter(CsvWriter):
         super().__init__(path, TRACE_COLUMNS)
 
     def append(self, record: TraceSample) -> None:  # type: ignore[override]
+        super().append(record)
+
+
+class NetEventWriter(CsvWriter):
+    def __init__(self, path: Path) -> None:
+        super().__init__(path, NET_EVENT_COLUMNS)
+
+    def append(self, record: NetEventRecord) -> None:  # type: ignore[override]
         super().append(record)
 
 

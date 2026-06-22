@@ -23,6 +23,13 @@ RECV_TIMEOUT_S = 2.0
 # query returns in milliseconds on a healthy link, so a stall past this bounds
 # the freeze before we drop and reconnect to resynchronise the stream.
 POLL_RECV_TIMEOUT_S = 0.5
+# Backoff between failed reconnect attempts in the status poller. The common case
+# is a single dropped poll that reconnects instantly, so we start small to keep
+# that freeze short (a flat 1 s sleep here was the source of the rare ~1 s lag
+# spikes); repeated failures back off exponentially up to the cap so a truly down
+# MMS doesn't get hammered.
+RECONNECT_BACKOFF_S = 0.05
+RECONNECT_BACKOFF_MAX_S = 1.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase detector  (see detector.py)
@@ -126,6 +133,8 @@ RATING_MAX = 10
 # Cursor movement (height units) that counts as the participant interacting with
 # the scale; large enough to ignore setPos/getPos jitter.
 SLIDER_INTERACT_EPS = 0.004
+
+SAVE_NET_EVENTS = False  # set True to write net_events_*.csv for network diagnostics
 
 INSTRUCTION_KEYS: dict[str, list[str]] = {
     "forward": ["1", "num_1"],

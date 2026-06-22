@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from heat_task.medoc.models import Command, MedocResponse
 from heat_task.medoc.protocol import decode_response, encode_command
-from heat_task.medoc.transport import MedocTransport
+from heat_task.medoc.transport import MedocConnectionClosed, MedocTransport
 
 
 class MedocClient:
@@ -60,6 +60,25 @@ class MedocClient:
 
     def status(self) -> MedocResponse | None:
         return self.send_command(Command.STATUS)
+
+    def poll_status(self) -> tuple[MedocResponse | None, str, str]:
+        """Send STATUS and report the outcome as ``(response, cause, detail)``.
+
+        ``cause`` is ``"ok"`` on success, else ``"timeout"``, ``"closed"``, or
+        ``"decode_error"`` so the poller can record *why* a poll produced no
+        sample instead of collapsing every failure into a bare ``None``.
+        """
+        self._transport.send(encode_command(Command.STATUS))
+        try:
+            data = self._transport.recv_frame()
+        except TimeoutError:
+            return None, "timeout", f"no response within {self._transport.recv_timeout:.2f}s"
+        except MedocConnectionClosed as exc:
+            return None, "closed", str(exc)
+        try:
+            return decode_response(data), "ok", ""
+        except ValueError as exc:
+            return None, "decode_error", str(exc)
 
     def select_test(self, program_id: int) -> MedocResponse | None:
         return self.send_command(Command.SELECT_TEST, program_id)

@@ -137,6 +137,11 @@ def run() -> None:
     file_stem = f"{session_info.subject_id}_{Path(session_info.run_file).stem}"
     behavior_writer = recorder.BehaviorWriter(run_dir / f"behavioral_{file_stem}.csv")
     trace_writer = recorder.TraceWriter(run_dir / f"temperature_trace_{file_stem}.csv")
+    net_event_writer = (
+        recorder.NetEventWriter(run_dir / f"net_events_{file_stem}.csv")
+        if config.SAVE_NET_EVENTS
+        else None
+    )
 
     poller = trial.StatusPoller(session_info.host, session_info.port)
     trace_index = 0
@@ -155,6 +160,7 @@ def run() -> None:
                     trial_config=trial_config,
                     trace_index=trace_index,
                     trace_writer=trace_writer,
+                    net_event_writer=net_event_writer,
                     poller=poller,
                     initial_delay_s=run_config.initial_delay_s,
                     prev_baseline_return_s=prev_baseline_return_s,
@@ -169,6 +175,8 @@ def run() -> None:
         poller.stop()
         behavior_writer.close()
         trace_writer.close()
+        if net_event_writer is not None:
+            net_event_writer.close()
         logging.flush()
         win.close()
         core.quit()

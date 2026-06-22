@@ -7,6 +7,10 @@ import struct
 from types import TracebackType
 
 
+class MedocConnectionClosed(Exception):
+    """The peer closed the connection before a full frame was received."""
+
+
 class MedocTransport:
     """Low-level TCP wrapper for communicating with the Medoc MMS.
 
@@ -61,24 +65,31 @@ class MedocTransport:
         while remaining > 0:
             chunk = self._sock.recv(remaining)
             if not chunk:
-                return b""
+                raise MedocConnectionClosed(
+                    f"peer closed after {nbytes - remaining}/{nbytes} bytes"
+                )
             chunks.append(chunk)
             remaining -= len(chunk)
         return b"".join(chunks)
 
-    def recv(self) -> bytes:
+    def recv_frame(self) -> bytes:
+        """Read one length-prefixed frame, or raise.
+
+        Raises ``TimeoutError`` if no data arrives within ``recv_timeout`` and
+        ``MedocConnectionClosed`` if the peer closes mid-frame. Callers that want
+        the old "empty bytes on failure" behaviour should use :meth:`recv`.
+        """
         if self._sock is None:
             raise RuntimeError("Not connected — call connect() first")
+        length_bytes = self._recv_exactly(4)
+        response_length = struct.unpack("<I", length_bytes)[0]
+        body = self._recv_exactly(response_length)
+        return length_bytes + body
+
+    def recv(self) -> bytes:
         try:
-            length_bytes = self._recv_exactly(4)
-            if not length_bytes:
-                return b""
-            response_length = struct.unpack("<I", length_bytes)[0]
-            body = self._recv_exactly(response_length)
-            if not body:
-                return b""
-            return length_bytes + body
-        except TimeoutError:
+            return self.recv_frame()
+        except (TimeoutError, MedocConnectionClosed):
             return b""
 
     def __enter__(self) -> MedocTransport:

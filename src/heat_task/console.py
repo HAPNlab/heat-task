@@ -76,7 +76,7 @@ def _make_table(rows: list[_RowData]) -> Table:
     t.add_column("Baseline", justify="right")
     t.add_column("Target", justify="right")
     t.add_column("Rating", justify="right")
-    t.add_column("Flag", justify="left")
+    t.add_column("", justify="left")
     for r in rows:
         t.add_row(
             r.trial_label,
@@ -103,6 +103,7 @@ class TrialLiveView:
         self._last_refresh_t = 0.0
         self._last_sample_t: float | None = None
         self._latency_window: deque[tuple[float, float]] = deque()
+        self._net_event_count = 0
 
     def __enter__(self) -> TrialLiveView:
         self._live.__enter__()
@@ -129,6 +130,11 @@ class TrialLiveView:
         self._temp = temperature
         self._phase = phase
         self._refresh()
+
+    def on_net_event(self, cause: str) -> None:
+        """Record a status-poll failure (timeout/reconnect) for the live chip."""
+        self._net_event_count += 1
+        self._refresh(force=True)
 
     def tick(self) -> None:
         """Advance the blink and repaint, independent of MMS sample arrival.
@@ -181,6 +187,8 @@ class TrialLiveView:
             frozen_s = now - self._last_sample_t
             if frozen_s >= _FREEZE_AFTER_S:
                 chip += f" [red](frozen {frozen_s:.1f}s)[/red]"
+        if self._net_event_count:
+            chip += f"  [yellow]drops {self._net_event_count}[/yellow]"
         return chip
 
     def _refresh(self, force: bool = False) -> None:

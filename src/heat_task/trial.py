@@ -33,12 +33,24 @@ class StatusSample:
     rtt_ms: float
 
 
+@dataclass(frozen=True, slots=True)
+class NetEvent:
+    """A status-poll failure that produced no sample, with its cause and the gap
+    since the last good sample. Lets the trace's silent gaps be explained."""
+
+    monotonic_time: float
+    cause: str  # "recv_timeout" | "status_error" | "connect_failure"
+    detail: str
+    gap_s: float
+
+
 class StatusPoller:
     def __init__(self, host: str, port: int) -> None:
         self._host = host
         self._port = port
         self._stop_event = threading.Event()
         self._queue: queue.SimpleQueue[StatusSample] = queue.SimpleQueue()
+        self._events: queue.SimpleQueue[NetEvent] = queue.SimpleQueue()
         self._thread = threading.Thread(target=self._run, name="medoc-status-poller", daemon=True)
 
     def start(self) -> None:
@@ -56,36 +68,70 @@ class StatusPoller:
             except queue.Empty:
                 return items
 
+    def drain_events(self) -> list[NetEvent]:
+        items: list[NetEvent] = []
+        while True:
+            try:
+                items.append(self._events.get_nowait())
+            except queue.Empty:
+                return items
+
     def _run(self) -> None:
-        client: MedocClient | None = None
+        # The MMS serves exactly one response per TCP connection and then closes
+        # it, so each poll opens a fresh socket. (Reusing one socket made every
+        # second poll see the expected close and look like a failure.) On a
+        # healthy LAN a connect costs a few ms; a connect that stalls or fails is
+        # the real source of the rare multi-hundred-ms / ~1 s lag spikes.
+        last_good = time.monotonic()  # for the gap_s reported on failures
+        backoff = config.RECONNECT_BACKOFF_S
         while not self._stop_event.is_set():
-            if client is None:
-                try:
-                    client = MedocClient.connect(
-                        self._host,
-                        self._port,
-                        connect_timeout=config.CONNECT_TIMEOUT_S,
-                        recv_timeout=config.POLL_RECV_TIMEOUT_S,
+            connect_start = time.monotonic()
+            try:
+                client = MedocClient.connect(
+                    self._host,
+                    self._port,
+                    connect_timeout=config.CONNECT_TIMEOUT_S,
+                    recv_timeout=config.POLL_RECV_TIMEOUT_S,
+                )
+            except Exception as exc:
+                now = time.monotonic()
+                self._events.put(
+                    NetEvent(
+                        monotonic_time=now,
+                        cause="connect_failure",
+                        detail=f"{type(exc).__name__}: {exc} "
+                        f"(connect took {(now - connect_start) * 1000.0:.0f}ms)",
+                        gap_s=now - last_good,
                     )
-                except Exception:
-                    time.sleep(1.0)
-                    continue
+                )
+                # Bounded exponential backoff so a down MMS isn't hammered. The
+                # old flat 1 s sleep here was itself the ~1 s spike.
+                self._stop_event.wait(backoff)
+                backoff = min(backoff * 2, config.RECONNECT_BACKOFF_MAX_S)
+                continue
+            backoff = config.RECONNECT_BACKOFF_S
 
             sample_time = time.monotonic()
             try:
-                response = client.status()
-            except Exception:
-                response = None
+                response, cause, detail = client.poll_status()
+            except Exception as exc:  # send error, etc.
+                response, cause, detail = None, "send_error", f"{type(exc).__name__}: {exc}"
+            finally:
+                client.close()  # the MMS closes after one response regardless
 
             if response is None:
-                # Timeout or an undecodable frame: the long-lived stream may be
-                # desynced (a mid-frame timeout leaves bytes unread). Drop the
-                # socket and reconnect to resynchronise rather than reusing it
-                # and emitting garbage — that is what caused multi-second stalls.
-                client.close()
-                client = None
+                now = time.monotonic()
+                self._events.put(
+                    NetEvent(
+                        monotonic_time=now,
+                        cause=cause,
+                        detail=detail,
+                        gap_s=now - last_good,
+                    )
+                )
                 continue
 
+            last_good = time.monotonic()
             self._queue.put(
                 StatusSample(
                     monotonic_time=sample_time,
@@ -93,15 +139,12 @@ class StatusPoller:
                     system_state=response.system_state,
                     test_state=response.test_state,
                     test_time_ms=response.test_time,
-                    rtt_ms=(time.monotonic() - sample_time) * 1000.0,
+                    rtt_ms=(last_good - sample_time) * 1000.0,
                 )
             )
 
             if config.POLL_INTERVAL_S > 0:
                 time.sleep(config.POLL_INTERVAL_S)
-
-        if client is not None:
-            client.close()
 
 
 @dataclass(slots=True)
@@ -162,6 +205,7 @@ def run_trial(
     trial_config: TrialConfig,
     trace_index: int,
     trace_writer: recorder.TraceWriter,
+    net_event_writer: recorder.NetEventWriter | None,
     poller: StatusPoller,
     initial_delay_s: float | None = None,
     prev_baseline_return_s: float | None = None,
@@ -245,8 +289,22 @@ def run_trial(
                     system_state=sample.system_state,
                     test_state=sample.test_state,
                     test_time_ms=sample.test_time_ms,
+                    rtt_ms=round(sample.rtt_ms, 3),
                 )
             )
+
+        for event in poller.drain_events():
+            if net_event_writer is not None:
+                net_event_writer.append(
+                    recorder.NetEventRecord(
+                        time_s=round(event.monotonic_time - task_start, 6),
+                        cause=event.cause,
+                        detail=event.detail,
+                        gap_s=round(event.gap_s, 4),
+                    )
+                )
+            if view is not None:
+                view.on_net_event(event.cause)
 
         _check_quit(kb)
 
