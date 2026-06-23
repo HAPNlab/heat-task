@@ -140,7 +140,7 @@ INSTRUCTION_KEYS: dict[str, list[str]] = {
     "back": [],
 }
 START_KEYS = ["0", "num_0"]
-END_KEYS = ["space", *START_KEYS]
+END_KEYS = ["0", "num_0"]
 QUIT_KEYS = ["escape"]
 
 WINDOW_COLOR = (-1, -1, -1)
