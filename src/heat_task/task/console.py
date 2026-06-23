@@ -113,12 +113,13 @@ class TrialLiveView:
         self._live.__exit__(*args)
 
     def start_trial(self, trial_n: int, baseline: float, target_temp: float) -> None:
-        self._current = _RowData(
+        row = _RowData(
             trial_label=f"{trial_n}/{self._n_trials}",
             baseline_str=f"{baseline:.1f}°C",
             target_str=f"{target_temp:.1f}°C",
         )
-        self._rows.append(self._current)
+        self._current = row
+        self._rows.append(row)
         self._refresh(force=True)
 
     def on_sample(self, temperature: float, phase: str, latency_ms: float) -> None:
@@ -131,7 +132,7 @@ class TrialLiveView:
         self._phase = phase
         self._refresh()
 
-    def on_net_event(self, cause: str) -> None:
+    def on_net_event(self) -> None:
         """Record a status-poll failure (timeout/reconnect) for the live chip."""
         self._net_event_count += 1
         self._refresh(force=True)

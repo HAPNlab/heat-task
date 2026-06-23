@@ -27,7 +27,8 @@ def _frame(command: int, param: int | None = None) -> bytes:
 
 
 class TestEncodeCommand:
-    def _encode(self, command: Command, parameter: int | None = None) -> bytes:
+    @staticmethod
+    def _encode(command: Command, parameter: int | None = None) -> bytes:
         with patch("heat_task.medoc.protocol._time.time", return_value=float(_FIXED_TS)):
             return encode_command(command, parameter)
 
@@ -100,7 +101,8 @@ class TestEncodeCommand:
 
 
 class TestDecodeResponse:
-    def _make_response_bytes(self, **overrides) -> bytes:
+    @staticmethod
+    def _make_response_bytes(**overrides) -> bytes:
         defaults = {
             "response_length": RESPONSE_HEADER_SIZE,
             "timestamp": 1000,
@@ -167,7 +169,7 @@ class TestDecodeResponse:
         data = self._make_response_bytes()
         resp = decode_response(data)
         with pytest.raises(AttributeError):
-            resp.timestamp = 999  # type: ignore[misc]
+            setattr(resp, "timestamp", 999)  # frozen dataclass: assignment must raise
 
     def test_unknown_enum_values_preserved(self):
         data = self._make_response_bytes(system_state=99, test_state=88, return_code=77)

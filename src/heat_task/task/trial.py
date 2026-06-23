@@ -253,7 +253,7 @@ def _drain_net_events(runtime: TrialRuntime) -> None:
                 )
             )
         if runtime.view is not None:
-            runtime.view.on_net_event(event.cause)
+            runtime.view.on_net_event()
 
 
 def _draw_frame(runtime: TrialRuntime, state: TrialState, rating: RatingController) -> None:

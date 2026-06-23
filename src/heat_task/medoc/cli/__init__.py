@@ -19,14 +19,14 @@ __all__ = ["MedocClient", "build_parser", "main", "monitor_status", "run_program
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    arg_parser = build_parser()
+    args = arg_parser.parse_args(argv)
     try:
         return args.func(args)
     except ValueError as exc:
         # parser.error() prints usage and raises SystemExit(2); it never returns,
         # so this except arm has no reachable fall-through.
-        parser.error(str(exc))
+        arg_parser.error(str(exc))
 
 
 if __name__ == "__main__":
