@@ -170,6 +170,7 @@ def write_manifest(
         "host": session_info.host,
         "port": session_info.port,
         "run_file": session_info.run_file,
+        "screen_index": session_info.screen_index,
         "program_word": run_config.program_word,
         "program_id": run_config.program_id,
         "trials": [

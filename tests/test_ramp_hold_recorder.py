@@ -66,7 +66,7 @@ def test_behavior_csv_roundtrip(tmp_path: Path):
 def test_write_manifest_merges_header_and_core_blocks(tmp_path: Path):
     session_info = SessionInfo(
         subject_id="S1", host="192.168.1.100", port=20121,
-        run_file="example.toml", show_instructions=True,
+        run_file="example.toml", screen_index=0, show_instructions=True,
     )
     write_manifest(
         run_dir=tmp_path,

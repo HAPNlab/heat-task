@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from psyexp_core import wizard
+from psyexp_core import screen, wizard
 
 from heat_task.io.conditions import conditions_dir
 from heat_task.medoc.transport import MedocTransport
@@ -24,6 +24,7 @@ class SessionInfo:
     host: str
     port: int
     run_file: str
+    screen_index: int
     show_instructions: bool
 
 
@@ -67,15 +68,17 @@ def run_wizard() -> SessionInfo:
         default="example.toml",
         validate=_validate_run_file,
     ).strip()
+    screen_index = screen.prompt_screen(default=last_connection.get("screen"))
     show_instructions = wizard.ask_confirm("Show instructions?", default=True)
 
-    _save_last_connection(host=host, port=port)
+    _save_last_connection(host=host, port=port, screen=screen_index)
 
     return SessionInfo(
         subject_id=subject_id,
         host=host,
         port=port,
         run_file=run_file,
+        screen_index=screen_index,
         show_instructions=show_instructions,
     )
 
@@ -95,16 +98,19 @@ def _load_last_connection() -> dict[str, str | int]:
 
     host = payload.get("host")
     port = payload.get("port")
+    screen = payload.get("screen")
     connection: dict[str, str | int] = {}
     if isinstance(host, str) and host.strip():
         connection["host"] = host.strip()
     if isinstance(port, int):
         connection["port"] = port
+    if isinstance(screen, int):
+        connection["screen"] = screen
     return connection
 
 
-def _save_last_connection(*, host: str, port: int) -> None:
-    payload = {"host": host, "port": port}
+def _save_last_connection(*, host: str, port: int, screen: int) -> None:
+    payload = {"host": host, "port": port, "screen": screen}
     try:
         _LAST_CONNECTION_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(_LAST_CONNECTION_PATH, "w") as handle:

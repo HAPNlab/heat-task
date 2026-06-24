@@ -59,7 +59,9 @@ def run() -> None:
     mms.prompt_setup(rcon)
 
     # ── SCREEN & FRAME RATE ───────────────────────────────────────────────────
-    win_res, win, screen_diag = screen.setup_screen(color=config.WINDOW_COLOR)
+    win_res, win, screen_diag = screen.setup_screen(
+        screen=session_info.screen_index, color=config.WINDOW_COLOR
+    )
     frame_rate = resolve_frame_rate(screen_diag.calib_median_ms)
 
     # ── LOGGING ───────────────────────────────────────────────────────────────
