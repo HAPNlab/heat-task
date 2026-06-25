@@ -48,7 +48,7 @@ def test_behavior_csv_roundtrip(tmp_path: Path):
     w = BehaviorWriter(path)
     w.append(
         BehaviorRecord(
-            sequence_n=1, baseline=35.0, target_temp=46.0,
+            sequence_n=1, baseline_temp=35.0, target_temp=46.0,
             ramp_up_onset_s=1.0, hold_onset_s=2.0, ramp_down_onset_s=3.0,
             baseline_return_s=4.0, rating=5.0,
             rating_no_response=0, sequence_end_s=10.0, sample_count=120,

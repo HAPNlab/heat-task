@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class BehaviorRecord:
     sequence_n: int
-    baseline: float
+    baseline_temp: float
     target_temp: float
     ramp_up_onset_s: float | str
     hold_onset_s: float | str
@@ -72,7 +72,7 @@ class NetEventRecord:
 
 BEHAVIOR_COLUMNS = [
     "sequence_n",
-    "baseline",
+    "baseline_temp",
     "target_temp",
     "ramp_up_onset_s",
     "hold_onset_s",

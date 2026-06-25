@@ -283,7 +283,7 @@ def _build_record(
 ) -> recording.BehaviorRecord:
     return recording.BehaviorRecord(
         sequence_n=state.sequence_n,
-        baseline=sequence_config.baseline,
+        baseline_temp=sequence_config.baseline,
         target_temp=sequence_config.target_temp,
         ramp_up_onset_s=state.ramp_up_onset_s,
         hold_onset_s=state.hold_onset_s,
