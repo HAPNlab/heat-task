@@ -4,8 +4,6 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
-      <!-- Binary .NET-serialized Medoc protocol export; not source. Stops the IDE
-           from parsing/indexing it as text (e.g. examples/experiment.ats). -->
       <excludePattern pattern="*.ats" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />

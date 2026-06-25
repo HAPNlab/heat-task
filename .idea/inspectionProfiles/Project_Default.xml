@@ -16,6 +16,16 @@
         PyProtectedMember— accessing PsychoPy "internals" (e.g. psychopy.prefs) is normal
                            for a wrapper package; psychopy.prefs is in fact public.
     -->
+    <!--
+      Annotator surfaces parser-level errors from language injected into Markdown
+      fenced code blocks (e.g. ```python). Illustrative doc snippets aren't complete
+      programs, so the parser flags things like `'continue' outside loop`. These
+      can't be silenced with a noinspection comment (parser errors, not inspections),
+      so the Annotator is disabled within the DocsNoInspect scope only.
+    -->
+    <inspection_tool class="Annotator" enabled="true" level="ERROR" enabled_by_default="true">
+      <scope name="DocsNoInspect" level="ERROR" enabled="false" />
+    </inspection_tool>
     <inspection_tool class="PyPep8NamingInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="PyBroadExceptionInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="PyProtectedMemberInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />

@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="DocsNoInspect" pattern="file:docs/mms-networking.md" />
+</component>
