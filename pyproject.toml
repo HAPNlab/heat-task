@@ -11,6 +11,7 @@ dependencies = [
     "psychopy>=2025.1",
     "psyexp-core>=0.6.0",
     "rich>=15.0.0",
+    "ruff>=0.15.4",
 ]
 # Note: psychtoolbox is NOT declared here. PyPI has no arm64 wheel for it, so on
 # Apple Silicon install it manually from the lab build, e.g.

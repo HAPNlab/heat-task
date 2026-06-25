@@ -388,6 +388,7 @@ dependencies = [
     { name = "psychopy" },
     { name = "psyexp-core" },
     { name = "rich" },
+    { name = "ruff" },
 ]
 
 [package.dev-dependencies]
@@ -399,8 +400,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "psychopy", specifier = ">=2025.1" },
-    { name = "psyexp-core", specifier = ">=0.5.2" },
+    { name = "psyexp-core", specifier = ">=0.6.0" },
     { name = "rich", specifier = ">=15.0.0" },
+    { name = "ruff", specifier = ">=0.15.4" },
 ]
 
 [package.metadata.requires-dev]
@@ -913,18 +915,20 @@ wheels = [
 
 [[package]]
 name = "psyexp-core"
-version = "0.5.2"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "prompt-toolkit" },
     { name = "psychopy" },
+    { name = "pyglet", version = "1.4.11", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "pyglet", version = "1.5.27", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
     { name = "questionary" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/17/8a08880b6629e665f240cc43e3046b41ab4db6ff9bd3b96ccbc98ee1fd15/psyexp_core-0.5.2.tar.gz", hash = "sha256:00fdd03c45f6343b754039e7dd9bc814cb6cf7f5a5b965f37bf4212cb357d670", size = 126199, upload-time = "2026-06-23T21:20:30.727Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/12/ed46487d3e48648f2ef42fa99441528fc78ec8870255f6247db7201205af/psyexp_core-0.6.0.tar.gz", hash = "sha256:78db11acd1656495e4857f8596eecc056b93448a4c5b57c2be65aa1dff3c15ae", size = 134937, upload-time = "2026-06-25T15:34:47.777Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/00/1e63781a5f3c174cd1dc4b1dca25085edfa649f3e9bc197af871294aedbc/psyexp_core-0.5.2-py3-none-any.whl", hash = "sha256:5f1d3436be724a009e45bb44ea9901585c60408188ecb47eb9de75f71727503d", size = 14777, upload-time = "2026-06-23T21:20:29.478Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/a8/d8d28ae5914cd69308294fd3355fa840b76ea8d0c2797f6101276a6f2836/psyexp_core-0.6.0-py3-none-any.whl", hash = "sha256:a77bc0ce465add6f86d5fa15b9f130a0ef1112fb0d9dc96487e67f9649f3419b", size = 23179, upload-time = "2026-06-25T15:34:46.285Z" },
 ]
 
 [[package]]
