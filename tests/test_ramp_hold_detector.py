@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from heat_task.io.conditions import TrialConfig
+from heat_task.io.conditions import SequenceConfig
 from heat_task.task.phase_tracker import PhaseTracker, PhaseTrackerConfig
 
 
 def test_detector_transitions_through_all_phases() -> None:
     tracker = PhaseTracker(
-        TrialConfig(baseline=32.0, target_temp=45.0),
+        SequenceConfig(baseline=32.0, target_temp=45.0),
         PhaseTrackerConfig(
             smoothing_window=3,
             trend_window=3,
@@ -51,7 +51,7 @@ def test_detector_completes_when_next_ramp_starts_before_baseline_return() -> No
     """When temperature doesn't return to baseline before the next ramp, the detector
     should still transition to complete once the new upward ramp is detected."""
     tracker = PhaseTracker(
-        TrialConfig(baseline=30.0, target_temp=45.0),
+        SequenceConfig(baseline=30.0, target_temp=45.0),
         PhaseTrackerConfig(
             smoothing_window=3,
             trend_window=3,
@@ -87,7 +87,7 @@ def test_detector_completes_when_next_ramp_starts_before_baseline_return() -> No
 
 def test_detector_ignores_small_hold_fluctuations() -> None:
     tracker = PhaseTracker(
-        TrialConfig(baseline=32.0, target_temp=45.0),
+        SequenceConfig(baseline=32.0, target_temp=45.0),
         PhaseTrackerConfig(
             smoothing_window=3,
             trend_window=3,

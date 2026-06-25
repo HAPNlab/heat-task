@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-# Frame rate is informational here (manifest + logging): trial timing is driven by
+# Frame rate is informational here (manifest + logging): sequence timing is driven by
 # the Medoc temperature stream, not by counting frames. The VSYNC calibration can
 # occasionally report an implausibly high rate, so we fall back to a safe default
 # rather than record a bogus value. Genuine >200 Hz displays exist, but telling

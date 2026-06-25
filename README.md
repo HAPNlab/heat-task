@@ -68,14 +68,19 @@ uv run heat-task                    # uses your local core, edits are live
 After changing *other* dependencies you'll need a manual `uv sync` (auto-sync is
 off) — that re-clobbers psyexp-core, so re-run the editable install above.
 
-The task reads a TOML run file from `conditions/`. Example:
+The task reads a TOML run file from `conditions/`. Each `[[sequence]]` mirrors one
+MMS program column (baseline → ramp-up → hold → ramp-down → trailing baseline);
+`time_before_s` is the MMS "Time Before Sequence" lead-in (default 0). Example:
 
 ```toml
 program_word = "00001111"
 
-[[trial]]
+[[sequence]]
 baseline = 32.0
 target_temp = 45.0
+time_before_s = 20.0               # lead-in before the first ramp
+target_hold_duration_s = 30.0      # hold at target before ramp-down
+baseline_duration_s = 30.0         # trailing baseline after ramp-down
 ```
 
 At launch the task selects the program in MMS, keeps a participant crosshair on screen, and waits

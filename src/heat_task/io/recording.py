@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class BehaviorRecord:
-    trial_n: int
+    sequence_n: int
     baseline: float
     target_temp: float
     ramp_up_onset_s: float | str
@@ -31,18 +31,18 @@ class BehaviorRecord:
     baseline_return_s: float | str
     rating: float
     rating_no_response: int
-    trial_end_s: float
+    sequence_end_s: float
     sample_count: int
 
 @dataclass(frozen=True, slots=True)
 class TraceSample:
     """One row of the temperature trace: a single Medoc status sample polled
-    during a trial, enriched with the phase/event the tracker derived from it.
+    during a sequence, enriched with the phase/event the tracker derived from it.
     One is written per poll, so the trace is the run sampled at the poll rate."""
 
     sample_n: int
     time_s: float
-    trial_n: int
+    sequence_n: int
     baseline: float
     target_temp: float
     raw_temperature: float
@@ -71,7 +71,7 @@ class NetEventRecord:
 
 
 BEHAVIOR_COLUMNS = [
-    "trial_n",
+    "sequence_n",
     "baseline",
     "target_temp",
     "ramp_up_onset_s",
@@ -80,14 +80,14 @@ BEHAVIOR_COLUMNS = [
     "baseline_return_s",
     "rating",
     "rating_no_response",
-    "trial_end_s",
+    "sequence_end_s",
     "sample_count",
 ]
 
 TRACE_COLUMNS = [
     "sample_n",
     "time_s",
-    "trial_n",
+    "sequence_n",
     "baseline",
     "target_temp",
     "raw_temperature",
@@ -173,13 +173,18 @@ def write_manifest(
         "screen_index": session_info.screen_index,
         "program_word": run_config.program_word,
         "program_id": run_config.program_id,
-        "trials": [
-            {"baseline": trial.baseline, "target_temp": trial.target_temp}
-            for trial in run_config.trials
+        "sequences": [
+            {
+                "baseline": seq.baseline,
+                "target_temp": seq.target_temp,
+                "time_before_s": seq.time_before_s,
+                "target_hold_duration_s": seq.target_hold_duration_s,
+                "baseline_duration_s": seq.baseline_duration_s,
+            }
+            for seq in run_config.sequences
         ],
     }
     study_params = {
-        "initial_delay_s": run_config.initial_delay_s,
         "rating_timeout_s": config.RATING_TIMEOUT_S,
         "baseline_tolerance": config.BASELINE_TOLERANCE,
         "target_tolerance": config.TARGET_TOLERANCE,
@@ -198,7 +203,7 @@ def write_manifest(
         win_res=win_res,
         study_params=study_params,
         frame_rate=frame_rate,
-        n_trials=len(run_config.trials),
+        n_trials=len(run_config.sequences),
         frame_dur_s=(1.0 / frame_rate) if frame_rate else None,
         frame_dur_source="calibration",
     )

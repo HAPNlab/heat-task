@@ -61,7 +61,7 @@ RECONNECT_BACKOFF_MAX_S = 1.0
 #   hold        →  ramp_down   downward trend AND (T ≤ target − TARGET_TOL/2
 #                                OR T ≤ peak − RAMP_DOWN_DELTA)
 #   ramp_down   →  complete    T within BASELINE_TOLERANCE of baseline
-#                                (or a fresh upward ramp begins → next trial)
+#                                (or a fresh upward ramp begins → next sequence)
 #
 # Three knobs shape *every* transition above by conditioning the raw stream:
 #
@@ -124,7 +124,7 @@ SLIDER_TRACK_H = 0.006  # track line thickness
 SLIDER_MARKER_H = 0.10  # marker (handle) height
 SLIDER_Y = 0.0  # vertical centre of the whole slider
 
-# Max time the participant has to enter a rating before the trial moves on.
+# Max time the participant has to enter a rating before the sequence moves on.
 RATING_TIMEOUT_S = 15.0
 
 # Pain rating scale: 11 discrete integer positions the marker snaps to.

@@ -18,7 +18,7 @@ from heat_task import config
 from heat_task.medoc.client import MedocClient
 
 # Timestamps here come from the shared run clock (a core.Clock reset at START),
-# the same object the trial loop reads. getTime() is therefore already relative to
+# the same object the sequence loop reads. getTime() is therefore already relative to
 # START, so the time_s stamped here lands directly in the trace's time_s and the
 # behavioral onset_s columns with no further arithmetic. The clock is a plain
 # Python object shared across threads; reads are atomic enough for our purposes.

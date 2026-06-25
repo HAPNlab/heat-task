@@ -1,38 +1,47 @@
 program_word = "00001111"
-initial_delay_s = 20.0        # fixed delay at task start before first ramp begins
 
-[[trial]]
+# Each [[sequence]] mirrors one MMS program column (baseline → ramp-up → hold →
+# ramp-down → trailing baseline). Field names follow the MMS columns:
+#   time_before_s          → "Time Before Sequence" lead-in (default 0; only the
+#                            first sequence usually has one)
+#   target_temp            → "Destination Temperature"
+#   target_hold_duration_s → "Duration Time" (hold at target before ramp-down)
+#   baseline_duration_s    → trailing baseline the sequence holds after ramp-down
+#                            (the MMS ISI), consumed at the end of the sequence
+
+[[sequence]]
 baseline = 35.0
+time_before_s = 20.0               # fixed delay at task start before first ramp begins
 target_temp = 46.0
-baseline_duration_s = 30.0        # post-ramp-down hold at baseline before next ramp-up
-target_hold_duration_s = 30.0      # hold at target temp before ramp-down
+target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
 
-[[trial]]
+[[sequence]]
 baseline = 35.0
 target_temp = 48.0
-baseline_duration_s = 30.0
 target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
 
-[[trial]]
+[[sequence]]
 baseline = 35.0
 target_temp = 48.0
-baseline_duration_s = 30.0
 target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
 
-[[trial]]
+[[sequence]]
 baseline = 35.0
 target_temp = 46.0
-baseline_duration_s = 30.0
 target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
 
-[[trial]]
+[[sequence]]
 baseline = 35.0
 target_temp = 46.0
-baseline_duration_s = 30.0
 target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
 
-[[trial]]
+[[sequence]]
 baseline = 35.0
 target_temp = 48.0
-baseline_duration_s = 30.0
 target_hold_duration_s = 30.0
+baseline_duration_s = 30.0

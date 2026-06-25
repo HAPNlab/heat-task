@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from heat_task.io.conditions import RunConfig, TrialConfig
+from heat_task.io.conditions import RunConfig, SequenceConfig
 from heat_task.io.recording import (
     BEHAVIOR_COLUMNS,
     BehaviorRecord,
@@ -29,18 +29,17 @@ class _FakeScreenDiag:
     calib_p99_ms: float = 17.0
     calib_max_ms: float = 18.0
     calib_n: int = 120
+    monitor: object = None
 
 
 def _run_config() -> RunConfig:
     return RunConfig(
         file_path=Path("conditions/example.toml"),
         program_word="00001111",
-        program_id=15,
-        trials=(
-            TrialConfig(baseline=35.0, target_temp=46.0),
-            TrialConfig(baseline=35.0, target_temp=48.0),
+        sequences=(
+            SequenceConfig(baseline=35.0, target_temp=46.0, time_before_s=5.0),
+            SequenceConfig(baseline=35.0, target_temp=48.0),
         ),
-        initial_delay_s=5.0,
     )
 
 
@@ -49,10 +48,10 @@ def test_behavior_csv_roundtrip(tmp_path: Path):
     w = BehaviorWriter(path)
     w.append(
         BehaviorRecord(
-            trial_n=1, baseline=35.0, target_temp=46.0,
+            sequence_n=1, baseline=35.0, target_temp=46.0,
             ramp_up_onset_s=1.0, hold_onset_s=2.0, ramp_down_onset_s=3.0,
             baseline_return_s=4.0, rating=5.0,
-            rating_no_response=0, trial_end_s=10.0, sample_count=120,
+            rating_no_response=0, sequence_end_s=10.0, sample_count=120,
         )
     )
     w.close()
@@ -84,11 +83,11 @@ def test_write_manifest_merges_header_and_core_blocks(tmp_path: Path):
     assert m["host"] == "192.168.1.100"
     assert m["program_word"] == "00001111"
     assert m["n_trials"] == 2
-    assert m["trials"][1]["target_temp"] == 48.0
+    assert m["sequences"][1]["target_temp"] == 48.0
+    assert m["sequences"][0]["time_before_s"] == 5.0
     assert "heat_task_version" in m
 
     # study params
-    assert m["study_params"]["initial_delay_s"] == 5.0
     assert m["study_params"]["baseline_tolerance"] == 0.40
 
     # core-owned blocks

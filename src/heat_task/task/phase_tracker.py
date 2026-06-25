@@ -11,7 +11,7 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from heat_task import config
-from heat_task.io.conditions import TrialConfig
+from heat_task.io.conditions import SequenceConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +48,7 @@ class PhaseUpdate:
 
 @dataclass(slots=True)
 class PhaseTracker:
-    trial: TrialConfig
+    sequence: SequenceConfig
     config: PhaseTrackerConfig = field(default_factory=PhaseTrackerConfig)
     phase: str = field(init=False, default="baseline")
     _window: deque[float] = field(init=False)
@@ -60,7 +60,7 @@ class PhaseTracker:
     def __post_init__(self) -> None:
         self._window = deque(maxlen=self.config.smoothing_window)
         self._slopes = deque(maxlen=self.config.trend_window)
-        self._peak_temperature = self.trial.baseline
+        self._peak_temperature = self.sequence.baseline
 
     def prime(self, primed_config: PhaseTrackerConfig) -> None:
         """Switch to tighter detection params ahead of an expected transition."""
@@ -82,7 +82,7 @@ class PhaseTracker:
 
         if self.phase == "baseline":
             condition = self._upward_trend() and smoothed >= (
-                self.trial.baseline + self.config.ramp_start_delta
+                self.sequence.baseline + self.config.ramp_start_delta
             )
             if self._advance_gate("ramp_up", condition):
                 self.phase = "ramp_up"
@@ -97,7 +97,7 @@ class PhaseTracker:
         elif self.phase == "hold":
             self._peak_temperature = max(self._peak_temperature, smoothed)
             condition = self._downward_trend() and (
-                smoothed <= self.trial.target_temp - (self.config.target_tolerance / 2.0)
+                smoothed <= self.sequence.target_temp - (self.config.target_tolerance / 2.0)
                 or smoothed <= self._peak_temperature - self.config.ramp_down_delta
             )
             if self._advance_gate("ramp_down", condition):
@@ -106,10 +106,10 @@ class PhaseTracker:
                 event = "ramp_down"
         elif self.phase == "ramp_down":
             # Transition to complete when temperature returns to near baseline OR when a new
-            # upward ramp is detected (next trial starting before full baseline return).
+            # upward ramp is detected (next sequence starting before full baseline return).
             near_baseline = self._near_baseline(smoothed)
             new_ramp_starting = self._upward_trend() and smoothed >= (
-                self.trial.baseline + self.config.ramp_start_delta
+                self.sequence.baseline + self.config.ramp_start_delta
             )
             if self._advance_gate("complete", near_baseline or new_ramp_starting):
                 self.phase = "complete"
@@ -125,10 +125,10 @@ class PhaseTracker:
         )
 
     def _near_baseline(self, temperature: float) -> bool:
-        return abs(temperature - self.trial.baseline) <= self.config.baseline_tolerance
+        return abs(temperature - self.sequence.baseline) <= self.config.baseline_tolerance
 
     def _near_target(self, temperature: float) -> bool:
-        return abs(temperature - self.trial.target_temp) <= self.config.target_tolerance
+        return abs(temperature - self.sequence.target_temp) <= self.config.target_tolerance
 
     def _upward_trend(self) -> bool:
         if not self._slopes:

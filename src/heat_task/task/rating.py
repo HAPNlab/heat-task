@@ -1,5 +1,5 @@
-"""The pain-rating slider: a small controller that owns the slider's per-trial
-state so the trial loop only has to begin it, tick it, and draw it."""
+"""The pain-rating slider: a small controller that owns the slider's per-sequence
+state so the sequence loop only has to begin it, tick it, and draw it."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def snap_rating(raw_x: float) -> tuple[int, float]:
 
 
 class RatingController:
-    """Drives the rating slider for one trial.
+    """Drives the rating slider for one sequence.
 
     ``begin`` arms the slider when ramp-down starts; ``update`` is called each
     frame and returns True on the frame the rating is finalised (after the

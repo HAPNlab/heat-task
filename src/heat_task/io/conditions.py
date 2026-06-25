@@ -3,25 +3,64 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
-@dataclass(frozen=True, slots=True)
-class TrialConfig:
+
+class SequenceConfig(BaseModel):
+    """One MMS *sequence*: a baseline → ramp-up → hold → ramp-down → baseline
+    cycle. Field names mirror the MMS program columns.
+
+    time_before_s is the MMS "Time Before Sequence" lead-in (0 for all but the
+    first sequence in a typical program); baseline_duration_s is the trailing
+    baseline the sequence holds *after* its ramp-down (the MMS ISI), consumed at
+    the end of the sequence."""
+
+    model_config = ConfigDict(frozen=True)
+
     baseline: float
     target_temp: float
+    time_before_s: float = 0.0
     baseline_duration_s: float | None = None
     target_hold_duration_s: float | None = None
 
+    @model_validator(mode="after")
+    def _target_above_baseline(self) -> SequenceConfig:
+        if self.target_temp <= self.baseline:
+            raise ValueError(
+                f"target_temp ({self.target_temp}) must be greater than "
+                f"baseline ({self.baseline})"
+            )
+        return self
 
-@dataclass(frozen=True, slots=True)
-class RunConfig:
+
+class RunConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
+
     file_path: Path
     program_word: str
-    program_id: int
-    trials: tuple[TrialConfig, ...]
-    initial_delay_s: float | None = None
+    # TOML uses [[sequence]] tables; expose them as the plural `sequences`.
+    sequences: tuple[SequenceConfig, ...] = Field(alias="sequence", min_length=1)
+
+    @field_validator("program_word")
+    @classmethod
+    def _valid_program_word(cls, value: str) -> str:
+        parse_program_word(value)  # raises ValueError on a malformed word
+        return value
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def program_id(self) -> int:
+        return parse_program_word(self.program_word)
 
 
 _PACKAGE_DIR = Path(__file__).parent.parent  # src/heat_task (this file lives in io/)
@@ -54,69 +93,7 @@ def load_run_config(path_value: str | Path) -> RunConfig:
     with open(path, "rb") as handle:
         payload = tomllib.load(handle)
 
-    program_word = payload.get("program_word")
-    if not isinstance(program_word, str):
-        raise ValueError("Run file must define program_word as a string")
-    program_id = parse_program_word(program_word)
-
-    raw_initial_delay = payload.get("initial_delay_s")
-    if raw_initial_delay is not None:
-        try:
-            initial_delay_s: float | None = float(raw_initial_delay)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("initial_delay_s must be numeric") from exc
-    else:
-        initial_delay_s = None
-
-    raw_trials = payload.get("trial")
-    if not isinstance(raw_trials, list) or not raw_trials:
-        raise ValueError("Run file must define at least one [[trial]] entry")
-
-    trials: list[TrialConfig] = []
-    for index, raw_trial in enumerate(raw_trials, start=1):
-        if not isinstance(raw_trial, dict):
-            raise ValueError(f"trial {index}: entry must be a table")
-
-        try:
-            baseline = float(raw_trial["baseline"])
-            target_temp = float(raw_trial["target_temp"])
-        except KeyError as exc:
-            raise ValueError(f"trial {index}: missing required field {exc.args[0]!r}") from exc
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"trial {index}: baseline and target_temp must be numeric") from exc
-
-        if target_temp <= baseline:
-            raise ValueError(
-                f"trial {index}: target_temp ({target_temp}) must be greater than "
-                f"baseline ({baseline})"
-            )
-
-        raw_baseline_dur = raw_trial.get("baseline_duration_s")
-        raw_hold_dur = raw_trial.get("target_hold_duration_s")
-        try:
-            trial_baseline_dur: float | None = (
-                float(raw_baseline_dur) if raw_baseline_dur is not None else None
-            )
-            trial_hold_dur: float | None = (
-                float(raw_hold_dur) if raw_hold_dur is not None else None
-            )
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"trial {index}: baseline_duration_s and target_hold_duration_s "
-                "must be numeric"
-            ) from exc
-
-        trials.append(TrialConfig(
-            baseline=baseline,
-            target_temp=target_temp,
-            baseline_duration_s=trial_baseline_dur,
-            target_hold_duration_s=trial_hold_dur,
-        ))
-
-    return RunConfig(
-        file_path=path,
-        program_word=program_word,
-        program_id=program_id,
-        trials=tuple(trials),
-        initial_delay_s=initial_delay_s,
-    )
+    try:
+        return RunConfig.model_validate({**payload, "file_path": path})
+    except ValidationError as exc:
+        raise ValueError(f"Invalid run file {path}:\n{exc}") from exc

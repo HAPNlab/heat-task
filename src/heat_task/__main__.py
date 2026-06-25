@@ -40,11 +40,11 @@ from heat_task.io.conditions import load_run_config
 from heat_task.io.setup_wizard import run_wizard
 from heat_task.medoc.models import ReturnCode
 from heat_task.task import display, instructions, mms
-from heat_task.task.console import TrialLiveView
+from heat_task.task.console import SequenceLiveView
 from heat_task.task.framerate import resolve_frame_rate
 from heat_task.task.phases import run_end_screen, wait_for_start
+from heat_task.task.sequence import SequenceRuntime, run_sequences
 from heat_task.task.status import StatusPoller
-from heat_task.task.trial import TrialRuntime, run_trials
 
 
 def run() -> None:
@@ -129,7 +129,7 @@ def run() -> None:
 
     # ── RUN CLOCK & OUTPUT FILES ──────────────────────────────────────────────
     # The run clock reads 0 at the START instant; constructing a core.Clock resets
-    # it to now. Both the poller and the trial loop read this one object, so every
+    # it to now. Both the poller and the sequence loop read this one object, so every
     # recorded time_s is already relative to START with no offset arithmetic.
     run_clock = core.Clock()
     file_stem = f"{session_info.subject_id}_{Path(session_info.run_file).stem}"
@@ -137,14 +137,14 @@ def run() -> None:
         run_dir, file_stem, save_net_events=_args.save_net_events
     )
 
-    # ── POLLER & TRIAL LOOP ───────────────────────────────────────────────────
-    # Start the background status poller and run the trial loop, tearing
+    # ── POLLER & SEQUENCE LOOP ───────────────────────────────────────────────────
+    # Start the background status poller and run the sequence loop, tearing
     # everything down in the finally block whatever happens.
     poller = StatusPoller(session_info.host, session_info.port, run_clock)
     poller.start()
     try:
-        with TrialLiveView(rcon, len(run_config.trials)) as view:
-            runtime = TrialRuntime(
+        with SequenceLiveView(rcon, len(run_config.sequences)) as view:
+            runtime = SequenceRuntime(
                 win=win,
                 stimuli=stimuli_obj,
                 kb=kb,
@@ -154,7 +154,7 @@ def run() -> None:
                 poller=poller,
                 view=view,
             )
-            run_trials(runtime, run_config, view, behavior_writer)
+            run_sequences(runtime, run_config, view, behavior_writer)
 
         rcon.print("[bold green]Run complete[/bold green]")
         exit_key = config.END_KEYS[0]

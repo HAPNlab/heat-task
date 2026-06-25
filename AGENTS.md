@@ -7,7 +7,7 @@ This project is a **PsychoPy ramp-and-hold thermal task** driven by a Medoc MMS 
 The task package lives in `src/heat_task/`. The root holds the entry point `__main__.py` (console script `heat-task`) and `config.py` (all task constants); everything else is grouped into subpackages:
 
 - `io/` — the input/output boundary: `conditions.py` (TOML run-file loading), `setup_wizard.py` (`run_wizard` + last-connection persistence under `data/`), and `recording.py` (CSV writers + manifest).
-- `task/` — the experiment run: `trial.py` (`run_trial` + `TrialRuntime`, which bundles per-run dependencies to avoid prop drilling), `phases.py` (wait-for-start / end screens + key helpers), `rating.py` (`RatingController` slider), `phase_tracker.py` (`PhaseTracker` — infers the ramp/hold phase from the temperature stream), `status.py` (`StatusPoller` background sampling), `mms.py` (one-off MMS command helpers), `instructions.py`, `display.py`, and `console.py` (the Rich live view).
+- `task/` — the experiment run: `sequence.py` (`run_sequence` + `SequenceRuntime`, which bundles per-run dependencies to avoid prop drilling), `phases.py` (wait-for-start / end screens + key helpers), `rating.py` (`RatingController` slider), `phase_tracker.py` (`PhaseTracker` — infers the ramp/hold phase from the temperature stream), `status.py` (`StatusPoller` background sampling), `mms.py` (one-off MMS command helpers), `instructions.py`, `display.py`, and `console.py` (the Rich live view).
 
 The Medoc TCP client is a **subpackage** at `src/heat_task/medoc/` (console script `medoc`) with three layers:
 - `transport.py` — raw TCP socket (connect/send/recv/close)

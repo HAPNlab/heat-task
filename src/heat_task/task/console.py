@@ -1,4 +1,4 @@
-"""Rich live-view table for the ramp-and-hold trial loop."""
+"""Rich live-view table for the ramp-and-hold sequence loop."""
 from __future__ import annotations
 
 from collections import deque
@@ -63,7 +63,7 @@ _PHASE_WIDTH = max(len(name) for name in _PHASE_PLAIN.values())
 
 @dataclass
 class _RowData:
-    trial_label: str
+    seq_label: str
     baseline_str: str
     target_str: str
     rating_str: str = _DIM
@@ -79,7 +79,7 @@ def _make_table(rows: list[_RowData]) -> Table:
     t.add_column("", justify="left")
     for r in rows:
         t.add_row(
-            r.trial_label,
+            r.seq_label,
             r.baseline_str,
             r.target_str,
             r.rating_str,
@@ -88,11 +88,11 @@ def _make_table(rows: list[_RowData]) -> Table:
     return t
 
 
-class TrialLiveView:
-    """Rich Live view with a status line (live temp) above the per-trial table."""
+class SequenceLiveView:
+    """Rich Live view with a status line (live temp) above the per-sequence table."""
 
-    def __init__(self, console: Console, n_trials: int) -> None:
-        self._n_trials = n_trials
+    def __init__(self, console: Console, n_sequences: int) -> None:
+        self._n_sequences = n_sequences
         self._live = Live(console=console, auto_refresh=False, vertical_overflow="visible")
         self._rows: list[_RowData] = []
         self._current: _RowData | None = None
@@ -105,16 +105,16 @@ class TrialLiveView:
         self._latency_window: deque[tuple[float, float]] = deque()
         self._net_event_count = 0
 
-    def __enter__(self) -> TrialLiveView:
+    def __enter__(self) -> SequenceLiveView:
         self._live.__enter__()
         return self
 
     def __exit__(self, *args: object) -> None:
         self._live.__exit__(*args)
 
-    def start_trial(self, trial_n: int, baseline: float, target_temp: float) -> None:
+    def start_sequence(self, sequence_n: int, baseline: float, target_temp: float) -> None:
         row = _RowData(
-            trial_label=f"{trial_n}/{self._n_trials}",
+            seq_label=f"{sequence_n}/{self._n_sequences}",
             baseline_str=f"{baseline:.1f}°C",
             target_str=f"{target_temp:.1f}°C",
         )

@@ -1,18 +1,24 @@
-"""Trial runtime for the ramp-and-hold task.
+"""Sequence runtime for the ramp-and-hold task.
 
-run_trials() walks the run's trial schedule, threading the carry-over state
-(continuous trace numbering and the previous baseline-return time) between
-trials and writing each behavioural record.
+run_sequences() walks the run's sequence schedule, threading the continuous
+trace-sample numbering between sequences and writing each behavioural record.
 
-run_trial() drives a single trial's render loop: it primes the phase tracker
-ahead of scheduled transitions, drains Medoc status samples (writing the
-temperature trace and detecting phase changes), runs the rating slider, and
-returns the trial's behavioural record.
+run_sequence() drives a single sequence's render loop: it primes the phase
+tracker ahead of scheduled transitions, drains Medoc status samples (writing the
+temperature trace and detecting phase changes), runs the rating slider, holds
+out the sequence's trailing baseline, and returns the behavioural record.
 
-Prop drilling is kept in check with TrialRuntime: the dependencies that are
+Each sequence owns the baseline period that *follows* its ramp-down (the MMS
+ISI): after the temperature returns to baseline the loop keeps running until
+baseline_duration_s has elapsed, so the trailing baseline is recorded in full
+before the sequence ends. The final sequence is no different — its trailing
+baseline is what the run sits through before the closing screen appears, so no
+end-of-run special case is needed.
+
+Prop drilling is kept in check with SequenceRuntime: the dependencies that are
 constant for the whole run (window, stimuli, keyboard, writers, poller, view,
 run clock) are bundled once and passed as a single object, so only the
-genuinely per-trial values stay as keyword arguments.
+genuinely per-sequence values stay as keyword arguments.
 """
 
 from __future__ import annotations
@@ -24,9 +30,9 @@ from psychopy.hardware import keyboard
 
 from heat_task import config
 from heat_task.io import recording
-from heat_task.io.conditions import RunConfig, TrialConfig
+from heat_task.io.conditions import RunConfig, SequenceConfig
 from heat_task.task import display
-from heat_task.task.console import TrialLiveView
+from heat_task.task.console import SequenceLiveView
 from heat_task.task.phase_tracker import PhaseTracker, PhaseTrackerConfig
 from heat_task.task.phases import check_quit
 from heat_task.task.rating import RatingController
@@ -34,7 +40,7 @@ from heat_task.task.status import StatusPoller
 
 
 @dataclass(slots=True)
-class TrialRuntime:
+class SequenceRuntime:
     """Dependencies constant across the whole run, bundled to avoid prop drilling."""
 
     win: visual.Window
@@ -44,13 +50,13 @@ class TrialRuntime:
     trace_writer: recording.TraceWriter
     net_event_writer: recording.NetEventWriter | None
     poller: StatusPoller
-    view: TrialLiveView | None = None
+    view: SequenceLiveView | None = None
 
 
 @dataclass(slots=True)
-class TrialState:
-    trial_n: int
-    trial: TrialConfig
+class SequenceState:
+    sequence_n: int
+    sequence: SequenceConfig
     tracker: PhaseTracker
     ramp_up_onset_s: float | str = ""
     hold_onset_s: float | str = ""
@@ -59,53 +65,49 @@ class TrialState:
     sample_count: int = 0
 
 
-def run_trials(
-    runtime: TrialRuntime,
+def run_sequences(
+    runtime: SequenceRuntime,
     run_config: RunConfig,
-    view: TrialLiveView,
+    view: SequenceLiveView,
     behavior_writer: recording.BehaviorWriter,
 ) -> None:
-    """Run every trial in the schedule, carrying state between them."""
-    # Running total of temperature-trace rows written; carried across trials so
+    """Run every sequence in the schedule, carrying the trace numbering between them."""
+    # Running total of temperature-trace rows written; carried across sequences so
     # the trace's sample_n column numbers continuously instead of resetting each
-    # trial.
+    # sequence.
     trace_sample_count = 0
-    # The previous trial's baseline-return time anchors when the next trial's
-    # ramp-up is expected (see _maybe_prime_ramp_up); None until the first trial
-    # completes, or whenever a baseline return wasn't detected.
-    prev_baseline_return_s: float | None = None
-    for trial_index, trial_config in enumerate(run_config.trials, start=1):
-        view.start_trial(trial_index, trial_config.baseline, trial_config.target_temp)
-        record, trace_sample_count = run_trial(
+    for seq_index, seq_config in enumerate(run_config.sequences, start=1):
+        view.start_sequence(seq_index, seq_config.baseline, seq_config.target_temp)
+        record, trace_sample_count = run_sequence(
             runtime,
-            trial_n=trial_index,
-            trial_config=trial_config,
+            sequence_n=seq_index,
+            sequence_config=seq_config,
             trace_sample_count=trace_sample_count,
-            initial_delay_s=run_config.initial_delay_s,
-            prev_baseline_return_s=prev_baseline_return_s,
         )
         behavior_writer.append(record)
-        prev_baseline_return_s = (
-            record.baseline_return_s if isinstance(record.baseline_return_s, float) else None
-        )
 
 
-def run_trial(
-    runtime: TrialRuntime,
+def run_sequence(
+    runtime: SequenceRuntime,
     *,
-    trial_n: int,
-    trial_config: TrialConfig,
+    sequence_n: int,
+    sequence_config: SequenceConfig,
     trace_sample_count: int,
-    initial_delay_s: float | None = None,
-    prev_baseline_return_s: float | None = None,
 ) -> tuple[recording.BehaviorRecord, int]:
-    """Run one complete ramp-hold trial and return its behavioural record."""
-    state = TrialState(
-        trial_n=trial_n,
-        trial=trial_config,
-        tracker=PhaseTracker(trial_config),
+    """Run one complete ramp-hold sequence and return its behavioural record.
+
+    The render loop continues past the ramp-down and baseline return until the
+    sequence's trailing baseline (baseline_duration_s) has elapsed, so that
+    period is recorded before the sequence ends."""
+    state = SequenceState(
+        sequence_n=sequence_n,
+        sequence=sequence_config,
+        tracker=PhaseTracker(sequence_config),
     )
     rating = RatingController(runtime.stimuli)
+    # The sequence's clock starts now (right after the previous sequence's
+    # trailing baseline); its ramp-up is expected time_before_s later.
+    sequence_start_s = runtime.clock.getTime()
     ramp_up_primed = False
     ramp_down_primed = False
 
@@ -113,9 +115,7 @@ def run_trial(
         now_s = runtime.clock.getTime()
 
         if not ramp_up_primed:
-            ramp_up_primed = _maybe_prime_ramp_up(
-                state, now_s, initial_delay_s, prev_baseline_return_s
-            )
+            ramp_up_primed = _maybe_prime_ramp_up(state, now_s, sequence_start_s)
         if not ramp_down_primed:
             ramp_down_primed = _maybe_prime_ramp_down(state, now_s)
 
@@ -133,55 +133,64 @@ def run_trial(
         if runtime.view is not None:
             runtime.view.tick()
 
-        if state.tracker.phase == "complete" and rating.complete:
-            record = _build_record(state, trial_config, runtime.clock, rating)
+        if (
+            state.tracker.phase == "complete"
+            and rating.complete
+            and _baseline_elapsed(state, now_s)
+        ):
+            record = _build_record(state, sequence_config, runtime.clock, rating)
             return record, trace_sample_count
 
 
 def _maybe_prime_ramp_up(
-    state: TrialState,
-    now_s: float,
-    initial_delay_s: float | None,
-    prev_baseline_return_s: float | None,
+    state: SequenceState, now_s: float, sequence_start_s: float
 ) -> bool:
     """Switch the tracker to twitchy params as the scheduled ramp-up nears.
 
-    The expected ramp-up time is the initial delay on trial 1, otherwise the
-    previous trial's baseline-return time plus this trial's baseline duration.
-    """
+    The ramp-up is expected the sequence's time_before_s lead-in after the
+    sequence began (0 for every sequence but the first, so they prime as soon as
+    they start)."""
     if state.tracker.phase != "baseline":
         return False
-    trial = state.trial
-    if state.trial_n == 1 and initial_delay_s is not None:
-        ready = now_s >= initial_delay_s - config.PRIME_WINDOW_S
-    elif trial.baseline_duration_s is not None and prev_baseline_return_s is not None:
-        scheduled = prev_baseline_return_s + trial.baseline_duration_s
-        ready = now_s >= scheduled - config.PRIME_WINDOW_S
-    else:
-        return False
-    if ready:
+    scheduled = sequence_start_s + state.sequence.time_before_s
+    if now_s >= scheduled - config.PRIME_WINDOW_S:
         state.tracker.prime(PhaseTrackerConfig.primed())
         return True
     return False
 
 
-def _maybe_prime_ramp_down(state: TrialState, now_s: float) -> bool:
+def _maybe_prime_ramp_down(state: SequenceState, now_s: float) -> bool:
     """Switch the tracker to twitchy params as the scheduled ramp-down nears."""
-    trial = state.trial
+    sequence = state.sequence
     if (
         state.tracker.phase == "hold"
-        and trial.target_hold_duration_s is not None
+        and sequence.target_hold_duration_s is not None
         and isinstance(state.hold_onset_s, float)
-        and now_s >= state.hold_onset_s + trial.target_hold_duration_s - config.PRIME_WINDOW_S
+        and now_s >= state.hold_onset_s + sequence.target_hold_duration_s - config.PRIME_WINDOW_S
     ):
         state.tracker.prime(PhaseTrackerConfig.primed())
         return True
     return False
 
 
+def _baseline_elapsed(state: SequenceState, now_s: float) -> bool:
+    """Whether the sequence's trailing baseline period has fully elapsed.
+
+    True immediately when no baseline duration is configured; otherwise once
+    baseline_duration_s has passed since the baseline return. The
+    baseline_return_s guard means a sequence never hangs if the return was never
+    detected (the tracker wouldn't be "complete" in that case anyway)."""
+    duration = state.sequence.baseline_duration_s
+    if duration is None:
+        return True
+    if not isinstance(state.baseline_return_s, float):
+        return True
+    return now_s >= state.baseline_return_s + duration
+
+
 def _drain_samples(
-    runtime: TrialRuntime,
-    state: TrialState,
+    runtime: SequenceRuntime,
+    state: SequenceState,
     rating: RatingController,
     trace_sample_count: int,
 ) -> int:
@@ -189,8 +198,8 @@ def _drain_samples(
     the temperature trace, and arm the rating slider on ramp-down.
 
     trace_sample_count is the running total of trace rows written so far across
-    all trials; it carries across trials so sample_n numbers the trace
-    continuously rather than restarting each trial."""
+    all sequences; it carries across sequences so sample_n numbers the trace
+    continuously rather than restarting each sequence."""
     for sample in runtime.poller.drain():
         trace_sample_count += 1
         sample_time_s = sample.time_s
@@ -206,9 +215,9 @@ def _drain_samples(
             recording.TraceSample(
                 sample_n=trace_sample_count,
                 time_s=round(sample_time_s, 6),
-                trial_n=state.trial_n,
-                baseline=state.trial.baseline,
-                target_temp=state.trial.target_temp,
+                sequence_n=state.sequence_n,
+                baseline=state.sequence.baseline,
+                target_temp=state.sequence.target_temp,
                 raw_temperature=round(update.raw_temperature, 4),
                 smoothed_temperature=round(update.smoothed_temperature, 4),
                 phase=update.phase,
@@ -224,7 +233,7 @@ def _drain_samples(
 
 
 def _record_transition(
-    state: TrialState,
+    state: SequenceState,
     rating: RatingController,
     event: str | None,
     sample_time_s: float,
@@ -241,7 +250,7 @@ def _record_transition(
         state.baseline_return_s = round(sample_time_s, 3)
 
 
-def _drain_net_events(runtime: TrialRuntime) -> None:
+def _drain_net_events(runtime: SequenceRuntime) -> None:
     for event in runtime.poller.drain_events():
         if runtime.net_event_writer is not None:
             runtime.net_event_writer.append(
@@ -256,7 +265,7 @@ def _drain_net_events(runtime: TrialRuntime) -> None:
             runtime.view.on_net_event()
 
 
-def _draw_frame(runtime: TrialRuntime, state: TrialState, rating: RatingController) -> None:
+def _draw_frame(runtime: SequenceRuntime, state: SequenceState, rating: RatingController) -> None:
     if rating.active:
         rating.draw()
     elif state.tracker.phase == "ramp_up":
@@ -267,21 +276,21 @@ def _draw_frame(runtime: TrialRuntime, state: TrialState, rating: RatingControll
 
 
 def _build_record(
-    state: TrialState,
-    trial_config: TrialConfig,
+    state: SequenceState,
+    sequence_config: SequenceConfig,
     clock: core.Clock,
     rating: RatingController,
 ) -> recording.BehaviorRecord:
     return recording.BehaviorRecord(
-        trial_n=state.trial_n,
-        baseline=trial_config.baseline,
-        target_temp=trial_config.target_temp,
+        sequence_n=state.sequence_n,
+        baseline=sequence_config.baseline,
+        target_temp=sequence_config.target_temp,
         ramp_up_onset_s=state.ramp_up_onset_s,
         hold_onset_s=state.hold_onset_s,
         ramp_down_onset_s=state.ramp_down_onset_s,
         baseline_return_s=state.baseline_return_s,
         rating=rating.rating,
         rating_no_response=rating.no_response,
-        trial_end_s=round(clock.getTime(), 3),
+        sequence_end_s=round(clock.getTime(), 3),
         sample_count=state.sample_count,
     )
