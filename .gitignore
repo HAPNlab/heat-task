@@ -15,8 +15,8 @@ build/
 .coverage
 htmlcov/
 
-# IDE
-.idea/
+# IDE — shared config (inspection profiles, code styles) is tracked;
+# user-specific files are excluded by .idea/.gitignore.
 .vscode/
 
 # Local dev env (direnv) — sets UV_NO_SYNC for editable psyexp-core / manual psychtoolbox

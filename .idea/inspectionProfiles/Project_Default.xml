@@ -1,0 +1,23 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <!--
+      This codebase wraps PsychoPy and dynamic OS APIs (Quartz/AppKit/Win32 ctypes).
+      The inspections below are disabled because they only flag intentional code here
+      and are NOT part of the project's enforced linting: ruff selects E,F,I,UP,B,Q
+      (no pep8-naming `N`, no blind-except `BLE`). Bug-catching inspections
+      (PyUnresolvedReferences, PyTypeChecker, PyPackageRequirements, PyUnusedLocal)
+      are left enabled.
+
+        PyPep8Naming     — Win32 struct/constant names mirror the API spec; test fakes
+                           must match PsychoPy's camelCase signatures (getKeys, etc.).
+        PyBroadException — best-effort OS/enrichment probes intentionally swallow
+                           everything so they never break callers.
+        PyProtectedMember— accessing PsychoPy "internals" (e.g. psychopy.prefs) is normal
+                           for a wrapper package; psychopy.prefs is in fact public.
+    -->
+    <inspection_tool class="PyPep8NamingInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyBroadExceptionInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyProtectedMemberInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+  </profile>
+</component>
