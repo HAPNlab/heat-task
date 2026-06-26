@@ -81,8 +81,8 @@ build manually after creating the environment.
 
 Task-agnostic experiment plumbing — screen/VSYNC setup, run manifest, CSV writers, setup-wizard
 primitives, instruction pager, keyboard abstraction — comes from the separate
-[`psyexp-core`](../../psyexp-core) package. `pyproject.toml` pins it to a git tag
-(`[tool.uv.sources]`) so clones reproduce exactly.
+[`psyexp-core`](../../psyexp-core) package. `pyproject.toml` declares it as a published PyPI
+dependency (`psyexp-core>=X.Y`); the exact version is pinned in `uv.lock` so clones reproduce.
 
 To work on it from the sibling checkout, overlay an editable install (it sticks as long as the
 re-sync that would revert it is skipped):
@@ -95,6 +95,22 @@ uv run heat-task                    # uses your local core, edits are live
 
 After changing *other* dependencies you'll need a manual `uv sync` (auto-sync is off) — that
 re-clobbers psyexp-core, so re-run the editable install above.
+
+## Updating `psyexp-core`
+
+`psyexp-core` is a published PyPI dependency (`psyexp-core>=X.Y` in `pyproject.toml`). A bare
+`uv sync` does **not** pull a newer release — it installs exactly what `uv.lock` pins, so a newly
+published version is ignored until the lock is regenerated. To upgrade:
+
+```bash
+uv lock --upgrade-package psyexp-core   # rewrite uv.lock to the newest version the constraint allows
+uv sync --inexact                       # apply it; --inexact keeps the manual psychtoolbox install
+```
+
+Then commit the updated `uv.lock`. Raise the `>=` floor in `pyproject.toml` first if you want to
+require a new minimum. CI (`.github/workflows/tests.yml`) reads the pinned version straight from
+`uv.lock` via `uv export --frozen`, so it tracks the upgrade automatically once the lock is
+committed.
 
 ## Guidelines
 
