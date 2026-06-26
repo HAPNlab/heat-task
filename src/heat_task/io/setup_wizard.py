@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import TypedDict
 
 from psyexp_core import screen, wizard
 
@@ -16,6 +17,14 @@ from heat_task.medoc.transport import MedocTransport
 _LAST_CONNECTION_PATH = conditions_dir().parent / "data" / ".last_connection.json"
 
 _SUBJECT_PLACEHOLDER = "XXX000"
+
+
+class _LastConnection(TypedDict, total=False):
+    """The subset of last-connection fields we persist between runs."""
+
+    host: str
+    port: int
+    screen: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +92,7 @@ def run_wizard() -> SessionInfo:
     )
 
 
-def _load_last_connection() -> dict[str, str | int]:
+def _load_last_connection() -> _LastConnection:
     if not _LAST_CONNECTION_PATH.exists():
         return {}
 
@@ -99,7 +108,7 @@ def _load_last_connection() -> dict[str, str | int]:
     host = payload.get("host")
     port = payload.get("port")
     screen = payload.get("screen")
-    connection: dict[str, str | int] = {}
+    connection: _LastConnection = {}
     if isinstance(host, str) and host.strip():
         connection["host"] = host.strip()
     if isinstance(port, int):
