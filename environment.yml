@@ -1,0 +1,17 @@
+name: heat-task
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  # Heavy binary libs that benefit from conda (mirrors the macOS brew deps).
+  - hdf5
+  - openblas
+  - lapack
+  - pip:
+      # pip reads pyproject.toml — the single source of truth for the package
+      # and its PyPI dependencies. Use ".[dev]" instead of "." to include the
+      # dev/test extras. Note: psychtoolbox is not declared in pyproject.toml
+      # (no arm64 PyPI wheel); install the lab build manually — see the
+      # Development Guide.
+      - -e .
