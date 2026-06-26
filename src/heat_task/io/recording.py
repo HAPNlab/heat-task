@@ -43,7 +43,7 @@ class TraceSample:
     sample_n: int
     time_s: float
     sequence_n: int
-    baseline: float
+    baseline_temp: float
     target_temp: float
     raw_temperature: float
     smoothed_temperature: float
@@ -88,7 +88,7 @@ TRACE_COLUMNS = [
     "sample_n",
     "time_s",
     "sequence_n",
-    "baseline",
+    "baseline_temp",
     "target_temp",
     "raw_temperature",
     "smoothed_temperature",
