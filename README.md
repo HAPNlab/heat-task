@@ -1,87 +1,59 @@
-Watch this for external control: https://www.youtube.com/watch?v=itfv7_E__EM&t=700s
+# heat-task
 
-## CLI
+A PsychoPy ramp-and-hold thermal pain task driven by a [Medoc MMS](https://www.medoc-web.com/)
+thermode. Each sequence ramps the thermode from a baseline to a target temperature, holds, then
+ramps back down; the participant rates pain on a 0–10 scale during the ramp-down while the task
+records the temperature stream.
 
-Select a program and monitor MMS status without pretesting or starting:
+The task does **not** read the program from MMS — it selects the program, sends `START`, and then
+*observes* the thermode's temperature stream, inferring each phase (baseline → ramp-up → hold →
+ramp-down → baseline) from the measured curve. A vendored Medoc MMS external-control client
+(`medoc`) is included for standalone monitoring and scripted runs.
 
-```bash
-uv run medoc monitor 192.168.1.100 15
-```
+## Documentation
 
-If MMS shows the program as an 8-bit word, pass it directly:
+| Document | Description |
+|----------|-------------|
+| [Usage Guide](docs/usage.md) | Running the task, the setup wizard, MMS arming sequence, keyboard controls, the `medoc` CLI, and output files |
+| [Development Guide](docs/development.md) | Developer setup, co-developing `psyexp-core`, project structure, run files, and key constants |
+| [Release Guide](docs/releasing.md) | Versioning (SemVer), verification, and how releases are published |
+| [MMS Networking](docs/mms-networking.md) | The external-control protocol and how the status poll loop stays responsive |
+| [MMS Program Parameters](docs/mms-program-parameters.md) | How an MMS program maps onto a `conditions/*.toml` run file |
 
-```bash
-uv run medoc monitor 192.168.1.100 --program-word 00001111
-```
+## Quick Start
 
-To monitor without changing the currently selected test, omit the program ID.
+UV is used for development; Anaconda is the production environment. Both install from the same
+`pyproject.toml` — see the [Development Guide](docs/development.md) for details. PsychoPy needs
+`psychtoolbox`, which has no arm64 PyPI wheel — install it manually from the lab build (see the
+[Development Guide](docs/development.md)).
 
-Run a configured MMS program/test and monitor status until it finishes:
-
-```bash
-uv run medoc run 192.168.1.100 15
-```
-
-The run command follows the Medoc example sequence: select program, send `START` once for
-pretest, wait briefly, send `START` again to begin the test, then poll status. Each command
-uses a fresh TCP connection because MMS closes connections after command responses.
-
-If MMS changes state but a command does not immediately return a response, the CLI continues.
-Use `--strict-responses` to fail on missing select/pretest/start responses. Use `--no-pretest`
-to skip the initial pretest `START`.
-
-Use `--wait-for-pretest` if you specifically want to wait until MMS reports idle/ready before
-sending the second `START`.
-
-Options:
+**UV (development):**
 
 ```bash
-uv run medoc run --help
-```
-
-## PsychoPy Ramp/Hold Task
-
-Run the PsychoPy ramp-and-hold task with:
-
-```bash
+uv venv
+uv sync --inexact
 uv run heat-task
 ```
 
-> **Heads up — `uv run` auto-syncs the venv from `uv.lock` on every launch.** That
-> sync will (a) revert a local editable `psyexp-core` back to the pinned git tag and
-> (b) remove the manually-installed Apple Silicon psychtoolbox wheel. Disable it by
-> setting `UV_NO_SYNC=1` — either `export UV_NO_SYNC=1` in your shell session or
-> prefix individual commands with `uv run --no-sync …`.
-
-### Co-developing `psyexp-core` locally
-
-The shared harness is pinned to a git tag in `pyproject.toml` so clones reproduce
-exactly. To work on it from the sibling checkout, overlay an editable install (it
-sticks as long as the re-sync that would revert it is skipped):
+**Anaconda (production):**
 
 ```bash
-export UV_NO_SYNC=1                 # for this shell; required so the overlay sticks
-uv pip install -e ../psyexp-core    # one time
-uv run heat-task                    # uses your local core, edits are live
+conda env create -f environment.yml
+conda activate heat-task
+heat-task
 ```
 
-After changing *other* dependencies you'll need a manual `uv sync` (auto-sync is
-off) — that re-clobbers psyexp-core, so re-run the editable install above.
+Run the task and follow the on-screen MMS arming prompts. To monitor or drive the thermode without
+the task, use the `medoc` CLI:
 
-The task reads a TOML run file from `conditions/`. Each `[[sequence]]` mirrors one
-MMS program column (baseline → ramp-up → hold → ramp-down → trailing baseline);
-`time_before_s` is the MMS "Time Before Sequence" lead-in (default 0). Example:
-
-```toml
-program_word = "00001111"
-
-[[sequence]]
-baseline = 32.0
-target_temp = 45.0
-time_before_s = 20.0               # lead-in before the first ramp
-target_hold_duration_s = 30.0      # hold at target before ramp-down
-baseline_duration_s = 30.0         # trailing baseline after ramp-down
+```bash
+uv run medoc monitor 192.168.1.100 15   # select program 15 and watch status
+uv run medoc run 192.168.1.100 15       # select, start, and monitor a program
 ```
 
-At launch the task selects the program in MMS, keeps a participant crosshair on screen, and waits
-for the experimenter to press the start key in PsychoPy after manual pretest in MMS.
+See the [Usage Guide](docs/usage.md) for the full command reference and options.
+
+## External control reference
+
+Medoc's own walkthrough of the external-control workflow:
+https://www.youtube.com/watch?v=itfv7_E__EM&t=700s
