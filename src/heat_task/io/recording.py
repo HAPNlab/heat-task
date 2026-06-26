@@ -48,12 +48,11 @@ class TraceSample:
     raw_temperature: float
     rolling_mean_temperature: float
     phase: str
-    transitioned: int
-    event: str
-    system_state: int
-    test_state: int
-    test_time_ms: int
-    rtt_ms: float
+    phase_change_event: str
+    device_system_state: str
+    device_test_state: str
+    device_clock_ms: int
+    poll_latency_ms: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,12 +92,11 @@ TRACE_COLUMNS = [
     "raw_temperature",
     "rolling_mean_temperature",
     "phase",
-    "transitioned",
-    "event",
-    "system_state",
-    "test_state",
-    "test_time_ms",
-    "rtt_ms",
+    "phase_change_event",
+    "device_system_state",
+    "device_test_state",
+    "device_clock_ms",
+    "poll_latency_ms",
 ]
 
 NET_EVENT_COLUMNS = [

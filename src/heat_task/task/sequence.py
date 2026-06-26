@@ -31,6 +31,8 @@ from psychopy.hardware import keyboard
 from heat_task import config
 from heat_task.io import recording
 from heat_task.io.conditions import RunConfig, SequenceConfig
+from heat_task.medoc.cli.formatting import enum_name
+from heat_task.medoc.models import SystemState, TestState
 from heat_task.task import display
 from heat_task.task.console import SequenceLiveView
 from heat_task.task.phase_tracker import PhaseTracker, PhaseTrackerConfig
@@ -214,19 +216,18 @@ def _drain_samples(
         runtime.trace_writer.append(
             recording.TraceSample(
                 sample_n=trace_sample_count,
-                time_s=round(sample_time_s, 6),
+                time_s=round(sample_time_s, 3),
                 sequence_n=state.sequence_n,
                 baseline_temp=state.sequence.baseline,
                 target_temp=state.sequence.target_temp,
                 raw_temperature=round(update.raw_temperature, 4),
                 rolling_mean_temperature=round(update.smoothed_temperature, 4),
                 phase=update.phase,
-                transitioned=int(update.transitioned),
-                event=update.event or "",
-                system_state=sample.system_state,
-                test_state=sample.test_state,
-                test_time_ms=sample.test_time_ms,
-                rtt_ms=round(sample.rtt_ms, 3),
+                phase_change_event=update.event or "",
+                device_system_state=enum_name(SystemState, sample.system_state).lower(),
+                device_test_state=enum_name(TestState, sample.test_state).lower(),
+                device_clock_ms=sample.test_time_ms,
+                poll_latency_ms=round(sample.rtt_ms, 3),
             )
         )
     return trace_sample_count
@@ -255,7 +256,7 @@ def _drain_net_events(runtime: SequenceRuntime) -> None:
         if runtime.net_event_writer is not None:
             runtime.net_event_writer.append(
                 recording.NetEventRecord(
-                    time_s=round(event.time_s, 6),
+                    time_s=round(event.time_s, 3),
                     cause=event.cause,
                     detail=event.detail,
                     gap_s=round(event.gap_s, 4),
