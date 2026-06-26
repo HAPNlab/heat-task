@@ -29,6 +29,11 @@ _FREEZE_AFTER_S = 0.5
 _LATENCY_WINDOW_S = 2.0
 
 
+def _styled(text: str, style: str) -> str:
+    """Wrap text in a Rich markup style tag."""
+    return f"[{style}]{text}[/{style}]"
+
+
 def _latency_style(ms: float) -> str:
     if ms < 150:
         return "green"
@@ -40,27 +45,26 @@ def _latency_style(ms: float) -> str:
 def _fmt_latency(ms: float) -> str:
     """Format a latency value, colour-coded by severity."""
     text = f"{ms:.0f}ms" if ms < 1000 else f"{ms / 1000:.1f}s"
-    style = _latency_style(ms)
-    return f"[{style}]{text}[/{style}]"
+    return _styled(text, _latency_style(ms))
 
-_PHASE_LABELS: dict[Phase, str] = {
-    Phase.BASELINE: "[dim]baseline[/dim]",
-    Phase.RAMP_UP: "[yellow]ramp ↑[/yellow]",
-    Phase.HOLD: "[red]hold[/red]",
-    Phase.RAMP_DOWN: "[yellow]ramp ↓[/yellow]",
-    Phase.COMPLETE: "[green]done[/green]",
-}
 
-# Plain (unstyled) phase names, used to right-pad the styled label so the
-# status line after the phase column stays put as the phase changes.
-_PHASE_PLAIN: dict[Phase, str] = {
-    Phase.BASELINE: "baseline",
-    Phase.RAMP_UP: "ramp ↑",
-    Phase.HOLD: "hold",
-    Phase.RAMP_DOWN: "ramp ↓",
-    Phase.COMPLETE: "done",
+# Plain name and Rich style for each phase, in one place so the label and the
+# padding width can't drift apart.
+_PHASE_DISPLAY: dict[Phase, tuple[str, str]] = {
+    Phase.BASELINE: ("baseline", "dim"),
+    Phase.RAMP_UP: ("ramp ↑", "yellow"),
+    Phase.HOLD: ("hold", "red"),
+    Phase.RAMP_DOWN: ("ramp ↓", "yellow"),
+    Phase.COMPLETE: ("done", "green"),
 }
-_PHASE_WIDTH = max(len(name) for name in _PHASE_PLAIN.values())
+_PHASE_WIDTH = max(len(name) for name, _ in _PHASE_DISPLAY.values())
+
+
+def _render_phase(phase: Phase) -> str:
+    """Styled phase label, right-padded to the widest plain name so the status
+    line after the phase column stays put as the phase changes."""
+    name, style = _PHASE_DISPLAY[phase]
+    return _styled(name, style) + " " * (_PHASE_WIDTH - len(name))
 
 
 @dataclass
@@ -148,30 +152,30 @@ class SequenceLiveView:
         """
         self._refresh()
 
-    # todo: is it possible if this rendering logic can be cleaned up? it's incredibly busy, and I'm wondering if there's a library that can help.
     def on_rating(self, rating: float, no_response: bool) -> None:
         r = self._current
         if r is None:
             return
-        r.rating_str = f"[cyan]{float(rating):.0f}[/cyan]"
-        r.flag_str = "[yellow]⚑ no resp[/yellow]" if no_response else ""
+        r.rating_str = _styled(f"{float(rating):.0f}", "cyan")
+        r.flag_str = _styled("⚑ no resp", "yellow") if no_response else ""
         self._refresh(force=True)
 
-    def _render_status(self) -> Text:
-        now = core.monotonicClock.getTime()
+    def _blink_dot(self, now: float) -> str:
+        """The pulsing ``●`` heartbeat; toggled on its own interval clock."""
         if now - self._blink_t >= _BLINK_INTERVAL_S:
             self._blink_on = not self._blink_on
             self._blink_t = now
-        dot = "[bold green]●[/bold green]" if self._blink_on else " "
-        running = f"{dot} [green]Running[/green]"
+        return _styled("●", "bold green") if self._blink_on else " "
+
+    def _render_status(self) -> Text:
+        now = core.monotonicClock.getTime()
+        running = f"{self._blink_dot(now)} [green]Running[/green]"
         if self._temp is None or self._phase is None:
             first_line = f"{running}  [dim]Waiting for MMS…[/dim]"
         else:
-            phase_label = _PHASE_LABELS.get(self._phase, self._phase)
-            pad = " " * (_PHASE_WIDTH - len(_PHASE_PLAIN.get(self._phase, self._phase)))
             first_line = (
                 f"{running}  Temp: [bold cyan]{self._temp:.2f}°C[/bold cyan]  "
-                f"Phase: {phase_label}{pad}"
+                f"Phase: {_render_phase(self._phase)}"
             )
         return Text.from_markup(f"{first_line}\n{self._latency_markup(now).strip()}")
 
@@ -190,9 +194,9 @@ class SequenceLiveView:
         if self._last_sample_t is not None:
             frozen_s = now - self._last_sample_t
             if frozen_s >= _FREEZE_AFTER_S:
-                chip += f" [red](frozen {frozen_s:.1f}s)[/red]"
+                chip += " " + _styled(f"(frozen {frozen_s:.1f}s)", "red")
         if self._net_event_count:
-            chip += f"  [yellow]drops {self._net_event_count}[/yellow]"
+            chip += "  " + _styled(f"drops {self._net_event_count}", "yellow")
         return chip
 
     def _refresh(self, force: bool = False) -> None:
