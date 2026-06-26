@@ -1,0 +1,43 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      # PsychoPy is deliberately NOT installed: it's a heavy GUI/audio dep whose
+      # transitive build (ffpyplayer → SDL headers) is fragile on headless CI.
+      # The medoc + ramp/hold modules the tests exercise are import-clean without
+      # it, so the suite imports and runs with just pydantic + psyexp-core. We put
+      # `src` on PYTHONPATH rather than resolving the project's full dependency
+      # graph (which would drag in PsychoPy and the unavailable psychtoolbox arm64
+      # wheel).
+      #
+      # psyexp-core is installed --no-deps for the same reason: the light modules
+      # the tests pull in are import-clean without PsychoPy, so --no-deps avoids
+      # dragging the GUI stack back in. Its pinned version is read from uv.lock via
+      # `uv export` rather than hardcoded here — the lockfile stays the single
+      # source of truth.
+      - name: Create venv and install minimal test deps
+        run: |
+          uv venv
+          uv pip install pytest pydantic
+          uv export --frozen --no-hashes --no-emit-project | grep '^psyexp-core==' > psyexp-core-req.txt
+          uv pip install --no-deps -r psyexp-core-req.txt
+
+      # tests/test_ramp_hold_recorder.py is excluded: it imports the setup wizard,
+      # which pulls in psyexp_core.screen and thus PsychoPy at module import time.
+      # That dep is deliberately absent here (see above), so this module can't be
+      # collected headless. Every other test runs without a display.
+      - name: Run tests
+        env:
+          PYTHONPATH: src
+        run: .venv/bin/python -m pytest -v --ignore=tests/test_ramp_hold_recorder.py

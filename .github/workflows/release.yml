@@ -1,0 +1,88 @@
+name: release
+
+# Triggered by pushing a semver tag (e.g. v1.2.3 or v1.2.3-rc.1). The job pulls
+# the matching section out of CHANGELOG.md and publishes it as a draft GitHub
+# Release, attaching the auto-generated source code archives.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Guard the release: the tag, pyproject.toml version, and CHANGELOG.md must
+      # agree. Fail loudly rather than publish a mislabeled release.
+      #   - pyproject [project].version must equal the tag without the leading "v"
+      #   - CHANGELOG.md must contain a "## ..." heading for that version
+      - name: Verify version and changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+
+          pyproject_version="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
+          if [ "$pyproject_version" != "$version" ]; then
+            echo "::error::pyproject.toml version ($pyproject_version) does not match tag $GITHUB_REF_NAME (expected $version). Bump pyproject.toml before tagging."
+            exit 1
+          fi
+
+          if ! awk -v ver="$version" '
+            /^## / {
+              heading = $0
+              gsub(/[][]/, "", heading)
+              if (index(heading, ver)) { found = 1 }
+            }
+            END { exit found ? 0 : 1 }
+          ' CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for $version. Add a '## $version' entry before tagging."
+            exit 1
+          fi
+
+      # Guard against a stale lockfile: uv.lock must agree with pyproject.toml.
+      # `uv lock --check` fails if the lock is out of date (e.g. the version was
+      # bumped in pyproject.toml but uv.lock was never re-locked to match).
+      - name: Verify uv.lock is in sync with pyproject.toml
+        uses: astral-sh/setup-uv@v7
+      - name: uv lock --check
+        run: uv lock --check
+
+      # Pull the notes for this tag out of CHANGELOG.md. We match the heading
+      # whose version equals the tag without the leading "v" (so tag v1.2.3 maps
+      # to a "## [1.2.3]" / "## 1.2.3" heading) and emit everything up to the
+      # next "## " heading. If no section is found we fall back to a generic note
+      # rather than failing the release.
+      - name: Extract release notes
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes_file="$(mktemp)"
+          awk -v ver="$version" '
+            $0 ~ "^## " {
+              if (found) exit
+              heading = $0
+              gsub(/[][]/, "", heading)
+              if (index(heading, ver)) { found = 1; next }
+            }
+            found { print }
+          ' CHANGELOG.md > "$notes_file"
+
+          if [ ! -s "$notes_file" ]; then
+            printf 'Release %s\n' "$GITHUB_REF_NAME" > "$notes_file"
+          fi
+
+          echo "file=$notes_file" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: ${{ github.ref_name }}
+          body_path: ${{ steps.notes.outputs.file }}
+          draft: true
+          # Mark as prerelease when the tag carries an rc/alpha/beta suffix.
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') }}
