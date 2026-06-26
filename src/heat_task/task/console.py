@@ -11,6 +11,8 @@ from rich.live import Live
 from rich.table import Table
 from rich.text import Text
 
+from heat_task.task.phase_tracker import Phase
+
 _DIM = "[dim]…[/dim]"
 
 _BLINK_INTERVAL_S = 0.4
@@ -41,22 +43,22 @@ def _fmt_latency(ms: float) -> str:
     style = _latency_style(ms)
     return f"[{style}]{text}[/{style}]"
 
-_PHASE_LABELS: dict[str, str] = {
-    "baseline": "[dim]baseline[/dim]",
-    "ramp_up": "[yellow]ramp ↑[/yellow]",
-    "hold": "[red]hold[/red]",
-    "ramp_down": "[yellow]ramp ↓[/yellow]",
-    "complete": "[green]done[/green]",
+_PHASE_LABELS: dict[Phase, str] = {
+    Phase.BASELINE: "[dim]baseline[/dim]",
+    Phase.RAMP_UP: "[yellow]ramp ↑[/yellow]",
+    Phase.HOLD: "[red]hold[/red]",
+    Phase.RAMP_DOWN: "[yellow]ramp ↓[/yellow]",
+    Phase.COMPLETE: "[green]done[/green]",
 }
 
 # Plain (unstyled) phase names, used to right-pad the styled label so the
 # status line after the phase column stays put as the phase changes.
-_PHASE_PLAIN: dict[str, str] = {
-    "baseline": "baseline",
-    "ramp_up": "ramp ↑",
-    "hold": "hold",
-    "ramp_down": "ramp ↓",
-    "complete": "done",
+_PHASE_PLAIN: dict[Phase, str] = {
+    Phase.BASELINE: "baseline",
+    Phase.RAMP_UP: "ramp ↑",
+    Phase.HOLD: "hold",
+    Phase.RAMP_DOWN: "ramp ↓",
+    Phase.COMPLETE: "done",
 }
 _PHASE_WIDTH = max(len(name) for name in _PHASE_PLAIN.values())
 
@@ -97,7 +99,7 @@ class SequenceLiveView:
         self._rows: list[_RowData] = []
         self._current: _RowData | None = None
         self._temp: float | None = None
-        self._phase: str = ""
+        self._phase: Phase | None = None
         self._blink_on = True
         self._blink_t = core.monotonicClock.getTime()
         self._last_refresh_t = 0.0
@@ -122,7 +124,7 @@ class SequenceLiveView:
         self._rows.append(row)
         self._refresh(force=True)
 
-    def on_sample(self, temperature: float, phase: str, latency_ms: float) -> None:
+    def on_sample(self, temperature: float, phase: Phase, latency_ms: float) -> None:
         if self._current is None:
             return
         now = core.monotonicClock.getTime()
@@ -146,6 +148,7 @@ class SequenceLiveView:
         """
         self._refresh()
 
+    # todo: is it possible if this rendering logic can be cleaned up? it's incredibly busy, and I'm wondering if there's a library that can help.
     def on_rating(self, rating: float, no_response: bool) -> None:
         r = self._current
         if r is None:
@@ -161,7 +164,7 @@ class SequenceLiveView:
             self._blink_t = now
         dot = "[bold green]●[/bold green]" if self._blink_on else " "
         running = f"{dot} [green]Running[/green]"
-        if self._temp is None:
+        if self._temp is None or self._phase is None:
             first_line = f"{running}  [dim]Waiting for MMS…[/dim]"
         else:
             phase_label = _PHASE_LABELS.get(self._phase, self._phase)

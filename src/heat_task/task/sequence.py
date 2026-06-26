@@ -35,7 +35,7 @@ from heat_task.medoc.cli.formatting import enum_name
 from heat_task.medoc.models import SystemState, TestState
 from heat_task.task import display
 from heat_task.task.console import SequenceLiveView
-from heat_task.task.phase_tracker import PhaseTracker, PhaseTrackerConfig
+from heat_task.task.phase_tracker import Phase, PhaseTracker, PhaseTrackerConfig
 from heat_task.task.phases import check_quit
 from heat_task.task.rating import RatingController
 from heat_task.task.status import StatusPoller
@@ -136,7 +136,7 @@ def run_sequence(
             runtime.view.tick()
 
         if (
-            state.tracker.phase == "complete"
+            state.tracker.phase == Phase.COMPLETE
             and rating.complete
             and _baseline_elapsed(state, now_s)
         ):
@@ -152,7 +152,7 @@ def _maybe_prime_ramp_up(
     The ramp-up is expected the sequence's time_before_s lead-in after the
     sequence began (0 for every sequence but the first, so they prime as soon as
     they start)."""
-    if state.tracker.phase != "baseline":
+    if state.tracker.phase != Phase.BASELINE:
         return False
     scheduled = sequence_start_s + state.sequence.time_before_s
     if now_s >= scheduled - config.PRIME_WINDOW_S:
@@ -165,7 +165,7 @@ def _maybe_prime_ramp_down(state: SequenceState, now_s: float) -> bool:
     """Switch the tracker to twitchy params as the scheduled ramp-down nears."""
     sequence = state.sequence
     if (
-        state.tracker.phase == "hold"
+        state.tracker.phase == Phase.HOLD
         and sequence.target_hold_duration_s is not None
         and isinstance(state.hold_onset_s, float)
         and now_s >= state.hold_onset_s + sequence.target_hold_duration_s - config.PRIME_WINDOW_S
@@ -236,18 +236,18 @@ def _drain_samples(
 def _record_transition(
     state: SequenceState,
     rating: RatingController,
-    event: str | None,
+    event: Phase | None,
     sample_time_s: float,
     kb: keyboard.Keyboard | None,
 ) -> None:
-    if event == "ramp_up":
+    if event == Phase.RAMP_UP:
         state.ramp_up_onset_s = round(sample_time_s, 3)
-    elif event == "hold":
+    elif event == Phase.HOLD:
         state.hold_onset_s = round(sample_time_s, 3)
-    elif event == "ramp_down":
+    elif event == Phase.RAMP_DOWN:
         state.ramp_down_onset_s = round(sample_time_s, 3)
         rating.begin(sample_time_s, kb)
-    elif event == "complete":
+    elif event == Phase.COMPLETE:
         state.baseline_return_s = round(sample_time_s, 3)
 
 
@@ -269,7 +269,7 @@ def _drain_net_events(runtime: SequenceRuntime) -> None:
 def _draw_frame(runtime: SequenceRuntime, state: SequenceState, rating: RatingController) -> None:
     if rating.active:
         rating.draw()
-    elif state.tracker.phase == "ramp_up":
+    elif state.tracker.phase == Phase.RAMP_UP:
         display.draw_ready(runtime.stimuli)
     else:
         display.draw_crosshair(runtime.stimuli)
