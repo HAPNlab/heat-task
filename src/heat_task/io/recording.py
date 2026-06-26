@@ -46,7 +46,7 @@ class TraceSample:
     baseline_temp: float
     target_temp: float
     raw_temperature: float
-    smoothed_temperature: float
+    rolling_mean_temperature: float
     phase: str
     transitioned: int
     event: str
@@ -91,7 +91,7 @@ TRACE_COLUMNS = [
     "baseline_temp",
     "target_temp",
     "raw_temperature",
-    "smoothed_temperature",
+    "rolling_mean_temperature",
     "phase",
     "transitioned",
     "event",
