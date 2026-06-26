@@ -9,7 +9,7 @@ description = "Ramp-and-hold thermal pain task (PsychoPy) driven by a Medoc MMS 
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "psychopy>=2025.1",
-    "psyexp-core>=0.6.0",
+    "psyexp-core>=0.7.0",
     "pydantic>=2",
     "rich>=15.0.0",
     "ruff>=0.15.4",
