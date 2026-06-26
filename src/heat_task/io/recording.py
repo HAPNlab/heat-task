@@ -66,7 +66,7 @@ class NetEventRecord:
     time_s: float
     cause: str
     detail: str
-    gap_s: float
+    since_last_sample_s: float
 
 
 BEHAVIOR_COLUMNS = [
@@ -103,7 +103,7 @@ NET_EVENT_COLUMNS = [
     "time_s",
     "cause",
     "detail",
-    "gap_s",
+    "since_last_sample_s",
 ]
 
 

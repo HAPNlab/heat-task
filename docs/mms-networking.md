@@ -108,7 +108,7 @@ rather than by tracking socket state (`StatusPoller._run`):
   immediately. The socket is already closed (the MMS closes after every
   response), so there is no stream to resynchronise.
 
-Every `NetEvent` carries `gap_s`, the time since the last good sample, so a
+Every `NetEvent` carries `since_last_sample_s`, the time since the last good sample, so a
 sequence of failures shows how long data has actually been stalled. Successful
 polls record `StatusSample.rtt_ms`, the measured round-trip time.
 

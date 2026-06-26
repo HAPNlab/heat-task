@@ -259,7 +259,7 @@ def _drain_net_events(runtime: SequenceRuntime) -> None:
                     time_s=round(event.time_s, 3),
                     cause=event.cause,
                     detail=event.detail,
-                    gap_s=round(event.gap_s, 4),
+                    since_last_sample_s=round(event.since_last_sample_s, 4),
                 )
             )
         if runtime.view is not None:

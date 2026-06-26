@@ -37,13 +37,13 @@ class StatusSample:
 
 @dataclass(frozen=True, slots=True)
 class NetEvent:
-    """A status-poll failure that produced no sample, with its cause and the gap
+    """A status-poll failure that produced no sample, with its cause and the time
     since the last good sample. Lets the trace's silent gaps be explained."""
 
     time_s: float
     cause: str  # "recv_timeout" | "status_error" | "connect_failure"
     detail: str
-    gap_s: float
+    since_last_sample_s: float
 
 
 class StatusPoller:
@@ -85,7 +85,7 @@ class StatusPoller:
         # second poll see the expected close and look like a failure.) On a
         # healthy LAN a connect costs a few ms; a connect that stalls or fails is
         # the real source of the rare multi-hundred-ms / ~1 s lag spikes.
-        last_good = self._clock.getTime()  # for the gap_s reported on failures
+        last_good = self._clock.getTime()  # for since_last_sample_s reported on failures
         backoff = config.RECONNECT_BACKOFF_S
         while not self._stop_event.is_set():
             connect_start = self._clock.getTime()
@@ -104,7 +104,7 @@ class StatusPoller:
                         cause="connect_failure",
                         detail=f"{type(exc).__name__}: {exc} "
                         f"(connect took {(now - connect_start) * 1000.0:.0f}ms)",
-                        gap_s=now - last_good,
+                        since_last_sample_s=now - last_good,
                     )
                 )
                 # Bounded exponential backoff so a down MMS isn't hammered. The
@@ -129,7 +129,7 @@ class StatusPoller:
                         time_s=now,
                         cause=cause,
                         detail=detail,
-                        gap_s=now - last_good,
+                        since_last_sample_s=now - last_good,
                     )
                 )
                 continue
