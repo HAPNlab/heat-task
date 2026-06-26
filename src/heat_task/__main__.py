@@ -47,6 +47,16 @@ from heat_task.task.sequence import SequenceRuntime, run_sequences
 from heat_task.task.status import StatusPoller
 
 
+def _halt_mms(host: str, port: int, command: str, rcon: Console) -> None:
+    """Send a stop/abort to the MMS during teardown, swallowing any failure so
+    the rest of cleanup always runs even if the thermode is unreachable or the
+    test has already ended."""
+    try:
+        mms.send_command(host, port, command)
+    except Exception as exc:  # noqa: BLE001 — best-effort shutdown, never re-raise
+        rcon.print(f"[yellow]MMS {command} failed during shutdown: {exc}[/yellow]")
+
+
 def run() -> None:
     # ── SESSION & CONFIG ──────────────────────────────────────────────────────
     session_info = run_wizard()
@@ -142,6 +152,7 @@ def run() -> None:
     # everything down in the finally block whatever happens.
     poller = StatusPoller(session_info.host, session_info.port, run_clock)
     poller.start()
+    halted_cleanly = False
     try:
         with SequenceLiveView(rcon, len(run_config.sequences)) as view:
             runtime = SequenceRuntime(
@@ -160,8 +171,25 @@ def run() -> None:
         exit_key = config.END_KEYS[0]
         rcon.print(f"[bold yellow]Press '{exit_key}' to exit the experiment...[/bold yellow]")
         run_end_screen(win, stimuli_obj, kb)
+        # Operator dismissed the end screen with the end key: stop the test cleanly.
+        logging.exp("Run ended normally: operator dismissed end screen with end key")
+        _halt_mms(session_info.host, session_info.port, "stop", rcon)
+        halted_cleanly = True
+    except KeyboardInterrupt:
+        # Ctrl-C in the terminal.
+        logging.warning("Run aborted: KeyboardInterrupt (Ctrl-C)")
+    except SystemExit:
+        # A quit key (escape) was pressed; check_quit/the phase screens call core.quit().
+        logging.warning("Run aborted: quit key pressed")
+    except Exception as exc:  # noqa: BLE001 — log any mid-run failure before teardown
+        logging.error(f"Run aborted: unexpected error: {exc!r}")
     finally:
         # ── CLEANUP ───────────────────────────────────────────────────────────
+        # Any path that didn't reach the clean stop above (Ctrl-C, escape/quit,
+        # or a mid-run error) is an early termination — abort the test so the
+        # thermode doesn't keep running after we tear down.
+        if not halted_cleanly:
+            _halt_mms(session_info.host, session_info.port, "abort", rcon)
         poller.stop()
         behavior_writer.close()
         trace_writer.close()

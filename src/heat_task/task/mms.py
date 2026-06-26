@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from psychopy import core, gui
+from psychopy import core, gui, logging
 from rich.console import Console
 from rich.panel import Panel
 
@@ -71,6 +71,11 @@ def select_program(
             run_config.program_id,
         )
     except Exception as exc:
+        logging.error(
+            f"Aborting run: could not reach MMS at "
+            f"{session_info.host}:{session_info.port}: {exc!r}"
+        )
+        logging.flush()
         win.close()
         gui.warnDlg(
             prompt=f"Could not reach MMS at {session_info.host}:{session_info.port}\n\n{exc}"
@@ -81,6 +86,8 @@ def select_program(
     try:
         require_ok(rcon, "MMS program selected", response)
     except RuntimeError as exc:
+        logging.error(f"Aborting run: MMS rejected the program selection: {exc!r}")
+        logging.flush()
         win.close()
         gui.warnDlg(prompt=f"MMS rejected the program selection.\n\n{exc}")
         core.quit()
