@@ -29,14 +29,3 @@ First release candidate for 1.0.0.
   tracker, and additional temp-trace/behavioral columns.
 - Renamed the device "testing" mode to "active".
 - Run only one MMS program at a time.
-
-## v0.1.0
-
-Initial release of the ramp-and-hold thermal pain task.
-
-### Added
-
-- Ramp-and-hold PsychoPy task driven by a Medoc MMS thermode.
-- Medoc MMS client, protocol, and CLI (`medoc`).
-- Ramp/hold detector, recorder, and condition handling.
-- Setup wizard and run-directory/recording scaffolding via psyexp-core.
