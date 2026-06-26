@@ -28,7 +28,7 @@ class SystemState(IntEnum):
     """Pathway system state (SYSTEM_STATE field in response)."""
     IDLE = 0
     READY = 1
-    TEST = 2
+    ACTIVE = 2
 
 
 class TestState(IntEnum):

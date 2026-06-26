@@ -12,7 +12,7 @@ from heat_task.medoc.models import TestState as MedocTestState
 def _response(
     *,
     command: int = 0,
-    system_state: int = int(SystemState.TEST),
+    system_state: int = int(SystemState.ACTIVE),
     test_state: int = int(MedocTestState.RUNNING),
     return_code: int = int(ReturnCode.OK),
 ) -> MedocResponse:
@@ -210,7 +210,7 @@ def test_monitor_status_only_does_not_select_or_start(monkeypatch, capsys):
     assert exit_code == 0
     assert fake_client.selected_program_id is None
     assert fake_client.start_count == 0
-    assert "status: system=TEST test=RUNNING" in captured.out
+    assert "status: system=ACTIVE test=RUNNING" in captured.out
 
 
 def test_monitor_can_select_program_before_status(monkeypatch, capsys):
@@ -236,8 +236,8 @@ def test_monitor_can_select_program_before_status(monkeypatch, capsys):
     assert exit_code == 0
     assert fake_client.selected_program_id == 15
     assert fake_client.start_count == 0
-    assert "select: system=TEST test=READY" in captured.out
-    assert "status: system=TEST test=RUNNING" in captured.out
+    assert "select: system=ACTIVE test=READY" in captured.out
+    assert "status: system=ACTIVE test=RUNNING" in captured.out
 
 
 def test_monitor_can_select_program_word(monkeypatch):
