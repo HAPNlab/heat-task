@@ -8,6 +8,6 @@
   </component>
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/../psyexp-core" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../core" vcs="Git" />
   </component>
 </project>

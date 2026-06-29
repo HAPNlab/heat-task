@@ -17,10 +17,10 @@ dependencies = [
 # Note: psychtoolbox is NOT declared here. PyPI has no arm64 wheel for it, so on
 # Apple Silicon install it manually from the lab build, e.g.
 #   uv pip install ../Psychtoolbox-3/dist/psychtoolbox-3.0.22.2-cp311-cp311-macosx_10_9_universal2.whl
-# Because `uv sync`/`uv run` are exact by default and will remove it, run them as
-# `uv sync --inexact` and `uv run --no-sync ...` (or set UV_NO_SYNC=1) to keep the
-# manual install. On Windows the lab build is needed similarly; PsychoPy's own
-# transitive psychtoolbox (<3.0.20, non-arm64) otherwise applies.
+# Because `uv sync` is exact by default it removes the manual install — run it as
+# `uv sync --inexact` to keep psychtoolbox. (`uv run`'s implicit sync is inexact,
+# so it leaves the manual install alone.) On Windows the lab build is needed
+# similarly; PsychoPy's own transitive psychtoolbox (<3.0.20, non-arm64) otherwise applies.
 
 [project.scripts]
 heat-task = "heat_task.__main__:run"

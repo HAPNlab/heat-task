@@ -29,10 +29,11 @@ Silicon, install it manually from the lab build, e.g.
 uv pip install ../Psychtoolbox-3/dist/psychtoolbox-3.0.22.2-cp311-cp311-macosx_10_9_universal2.whl
 ```
 
-Because `uv sync`/`uv run` are exact by default and will remove the manual install, run them as
-`uv sync --inexact` and `uv run --no-sync …` (or set `UV_NO_SYNC=1`) to keep it. On Windows the lab
-build is needed similarly; otherwise PsychoPy's own transitive `psychtoolbox` (`<3.0.20`,
-non-arm64) applies.
+Because `uv sync` is exact by default it removes the manual install — run it as `uv sync --inexact`
+to keep psychtoolbox. (`uv run`'s implicit sync is *inexact*, so it leaves the manual install alone;
+pass `--no-sync` only when you are also overlaying an editable `psyexp-core`, which *is* in the lock
+and would otherwise be reverted.) On Windows the lab build is needed similarly; otherwise PsychoPy's
+own transitive `psychtoolbox` (`<3.0.20`, non-arm64) applies.
 
 ## Quick Start
 
@@ -71,11 +72,11 @@ are ignored by pip/conda, so the conda install resolves dependencies fresh from 
 from the lockfile. `psychtoolbox` is still not pulled in automatically (see below) — install the lab
 build manually after creating the environment.
 
-> **Heads up — `uv run` auto-syncs the venv from `uv.lock` on every launch.** That sync will
-> (a) revert a local editable `psyexp-core` back to the pinned git tag and (b) remove the manually
-> installed Apple Silicon psychtoolbox wheel. Disable it by setting `UV_NO_SYNC=1` — either
-> `export UV_NO_SYNC=1` in your shell session or prefix individual commands with
-> `uv run --no-sync …`.
+> **Heads up — `uv run` auto-syncs the venv from `uv.lock` on every launch** (inexactly: it won't
+> remove your manually-installed psychtoolbox, but it *will* revert a local editable `psyexp-core`
+> back to the locked PyPI version, since the core is in the lock). While co-developing the core,
+> skip that sync with `UV_NO_SYNC=1` — `export` it in your shell, prefix commands with
+> `uv run --no-sync …`, or use the `just core-*` recipes.
 
 ## Co-developing `psyexp-core` locally
 
@@ -93,8 +94,16 @@ uv pip install -e ../psyexp-core    # one time
 uv run heat-task                    # uses your local core, edits are live
 ```
 
-After changing *other* dependencies you'll need a manual `uv sync` (auto-sync is off) — that
-re-clobbers psyexp-core, so re-run the editable install above.
+The `just core-dev` / `just core-run` / `just core-test` recipes wrap this — they overlay the
+editable checkout and run with `--no-sync`. Note `uv sync --inexact` does **not** preserve the
+editable core: `--inexact` only spares packages absent from the lock (that's what keeps
+psychtoolbox), and the core *is* in the lock, so only skipping the sync keeps it. After changing
+*other* dependencies you'll need a manual `uv sync --inexact` — that reverts psyexp-core, so re-run
+the editable install (or `just core-dev`) afterward.
+
+For a setup that survives sync, declare the path source in `pyproject.toml`
+(`[tool.uv.sources] psyexp-core = { path = "../psyexp-core", editable = true }`) and keep that edit
+local with `git update-index --skip-worktree pyproject.toml uv.lock`.
 
 ## Updating `psyexp-core`
 
@@ -107,7 +116,7 @@ uv lock --upgrade-package psyexp-core   # rewrite uv.lock to the newest version 
 uv sync --inexact                       # apply it; --inexact keeps the manual psychtoolbox install
 ```
 
-Then commit the updated `uv.lock`. Raise the `>=` floor in `pyproject.toml` first if you want to
+(`just core-upgrade` runs both commands.) Then commit the updated `uv.lock`. Raise the `>=` floor in `pyproject.toml` first if you want to
 require a new minimum. CI (`.github/workflows/tests.yml`) reads the pinned version straight from
 `uv.lock` via `uv export --frozen`, so it tracks the upgrade automatically once the lock is
 committed.

@@ -16,7 +16,7 @@ The Medoc TCP client is a **subpackage** at `src/heat_task/medoc/` (console scri
 - `models.py` — protocol enums/dataclasses (`Command`, `ReturnCode`, `MedocResponse`, …)
 - `cli/` — the `medoc` command line (`parser.py`, `commands.py`, `formatting.py`, `__init__.py` wires `main`)
 
-Task-agnostic experiment plumbing — screen/VSYNC setup, run manifest, CSV writers, setup-wizard primitives, instruction pager, keyboard abstraction — comes from the separate **`psyexp-core`** package. `pyproject.toml` pins it to a git tag (`[tool.uv.sources]`) so clones reproduce exactly. For local co-development, set `UV_NO_SYNC=1` (export it in your shell, or use `uv run --no-sync`) and overlay `uv pip install -e ../psyexp-core` — that stops `uv run`'s auto-sync from reverting the editable install (and from removing the manually-installed Apple Silicon psychtoolbox). See README "Co-developing `psyexp-core` locally".
+Task-agnostic experiment plumbing — screen/VSYNC setup, run manifest, CSV writers, setup-wizard primitives, instruction pager, keyboard abstraction — comes from the separate **`psyexp-core`** package, declared as a published PyPI dependency (`psyexp-core>=X.Y`) and pinned exactly in `uv.lock` so clones reproduce. For local co-development overlay an editable sibling checkout (`uv pip install -e ../psyexp-core`) and run with `uv run --no-sync` (or `UV_NO_SYNC=1`, or the `just core-*` recipes). The two overlays behave differently under sync: `uv sync --inexact` keeps the manually-installed Apple Silicon psychtoolbox (it is *not* in the lock), but it does **not** keep the editable `psyexp-core` (it *is* in the lock, so a sync reverts it) — only skipping the sync preserves that. See README "Co-developing `psyexp-core` locally".
 
 ## Terminology
 
