@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "heat-task"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.2"
 description = "Ramp-and-hold thermal pain task (PsychoPy) driven by a Medoc MMS thermode"
 requires-python = ">=3.11,<3.12"
 dependencies = [
