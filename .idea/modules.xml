@@ -3,7 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/heat-task.iml" filepath="$PROJECT_DIR$/.idea/heat-task.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../psyexp-core/.idea/psyexp-core.iml" filepath="$PROJECT_DIR$/../psyexp-core/.idea/psyexp-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../core/.idea/psyexp-core.iml" filepath="$PROJECT_DIR$/../core/.idea/psyexp-core.iml" />
     </modules>
   </component>
 </project>
