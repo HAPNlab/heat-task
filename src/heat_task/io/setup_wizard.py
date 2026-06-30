@@ -3,11 +3,10 @@ remembers the last MMS connection between runs."""
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from typing import TypedDict
 
 from psyexp_core import screen, wizard
+from pydantic import BaseModel, ValidationError, field_validator
 
 from heat_task.io.conditions import conditions_dir
 from heat_task.medoc.transport import MedocTransport
@@ -19,12 +18,23 @@ _LAST_CONNECTION_PATH = conditions_dir().parent / "data" / ".last_connection.jso
 _SUBJECT_PLACEHOLDER = "XXX000"
 
 
-class _LastConnection(TypedDict, total=False):
-    """The subset of last-connection fields we persist between runs."""
+class LastConnection(BaseModel):
+    """Connection settings remembered between runs. All optional: a missing or
+    malformed file yields an all-None instance, and absent fields fall back to the
+    wizard's defaults. Replaces hand-rolled JSON + isinstance validation, matching
+    the pydantic approach used for run files in conditions.py."""
 
-    host: str
-    port: int
-    screen: int
+    host: str | None = None
+    port: int | None = None
+    screen: int | None = None
+
+    @field_validator("host")
+    @classmethod
+    def _non_empty_host(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,12 +73,16 @@ def run_wizard() -> SessionInfo:
     )
     host = wizard.ask_text(
         "MMS host/IP",
-        default=str(last_connection.get("host", "192.168.1.100")),
+        default=last_connection.host or "192.168.1.100",
     ).strip()
     port = int(
         wizard.ask_text(
             "MMS port",
-            default=str(last_connection.get("port", MedocTransport.DEFAULT_PORT)),
+            default=str(
+                last_connection.port
+                if last_connection.port is not None
+                else MedocTransport.DEFAULT_PORT
+            ),
             validate=_validate_port,
         ).strip()
     )
@@ -77,7 +91,7 @@ def run_wizard() -> SessionInfo:
         default="example.toml",
         validate=_validate_run_file,
     ).strip()
-    screen_index = screen.prompt_screen(default=last_connection.get("screen"))
+    screen_index = screen.prompt_screen(default=last_connection.screen)
     show_instructions = wizard.ask_confirm("Show instructions?", default=True)
 
     _save_last_connection(host=host, port=port, screen=screen_index)
@@ -92,37 +106,20 @@ def run_wizard() -> SessionInfo:
     )
 
 
-def _load_last_connection() -> _LastConnection:
-    if not _LAST_CONNECTION_PATH.exists():
-        return {}
-
+def _load_last_connection() -> LastConnection:
+    """Best-effort load; a missing or malformed file yields an all-None instance."""
     try:
-        with open(_LAST_CONNECTION_PATH) as handle:
-            payload = json.load(handle)
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-    if not isinstance(payload, dict):
-        return {}
-
-    host = payload.get("host")
-    port = payload.get("port")
-    screen = payload.get("screen")
-    connection: _LastConnection = {}
-    if isinstance(host, str) and host.strip():
-        connection["host"] = host.strip()
-    if isinstance(port, int):
-        connection["port"] = port
-    if isinstance(screen, int):
-        connection["screen"] = screen
-    return connection
+        return LastConnection.model_validate_json(_LAST_CONNECTION_PATH.read_text())
+    except (OSError, ValidationError):
+        return LastConnection()
 
 
 def _save_last_connection(*, host: str, port: int, screen: int) -> None:
-    payload = {"host": host, "port": port, "screen": screen}
+    """Best-effort persist; never raise into the wizard if the write fails."""
     try:
         _LAST_CONNECTION_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(_LAST_CONNECTION_PATH, "w") as handle:
-            json.dump(payload, handle, indent=2)
+        _LAST_CONNECTION_PATH.write_text(
+            LastConnection(host=host, port=port, screen=screen).model_dump_json(indent=2)
+        )
     except OSError:
         return
