@@ -74,9 +74,11 @@ def run_sequences(
     behavior_writer: recording.BehaviorWriter,
 ) -> None:
     """Run every sequence in the schedule, carrying the trace numbering between them."""
-    # Running total of temperature-trace rows written; carried across sequences so
-    # the trace's sample_n column numbers continuously instead of resetting each
-    # sequence.
+    # Running total of temperature-trace rows written; threaded through each
+    # run_sequence call (passed in, returned updated, rebound below) so the
+    # trace's sample_n column numbers continuously across sequences instead of
+    # resetting each one. It's an int, so threading is how the count carries
+    # forward — there's no shared mutable counter to increment in place.
     trace_sample_count = 0
     for seq_index, seq_config in enumerate(run_config.sequences, start=1):
         view.start_sequence(seq_index, seq_config.baseline, seq_config.target_temp)
