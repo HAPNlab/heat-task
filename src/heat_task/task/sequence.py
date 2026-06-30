@@ -27,6 +27,7 @@ from dataclasses import dataclass
 
 from psychopy import core, visual
 from psychopy.hardware import keyboard
+from psyexp_core.keyboard import check_quit
 
 from heat_task import config
 from heat_task.io import recording
@@ -36,7 +37,6 @@ from heat_task.medoc.models import SystemState, TestState
 from heat_task.task import display
 from heat_task.task.console import SequenceLiveView
 from heat_task.task.phase_tracker import Phase, PhaseTracker, PhaseTrackerConfig
-from heat_task.task.phases import check_quit
 from heat_task.task.rating import RatingController
 from heat_task.task.status import StatusPoller
 
@@ -124,7 +124,7 @@ def run_sequence(
         trace_sample_count = _drain_samples(runtime, state, rating, trace_sample_count)
         _drain_net_events(runtime)
 
-        check_quit(runtime.kb)
+        check_quit(runtime.kb, config.QUIT_KEYS)
 
         if rating.update(now_s) and runtime.view is not None:
             runtime.view.on_rating(rating.rating, bool(rating.no_response))

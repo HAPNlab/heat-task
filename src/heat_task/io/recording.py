@@ -196,7 +196,7 @@ def write_manifest(
     _core_write_manifest(
         run_dir,
         header=header,
-        session_time=session_time,
+        session_started_at=session_time,
         screen_diag=screen_diag,
         win_res=win_res,
         study_params=study_params,
