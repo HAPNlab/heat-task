@@ -1,24 +1,14 @@
-"""Operator-gated phase screens (wait-for-start, end screen) and the small
-keyboard helpers shared across the task loop."""
+"""Operator-gated phase screens (wait-for-start, end screen) over the shared
+psyexp_core keyboard helpers."""
 
 from __future__ import annotations
 
-from psychopy import core, visual
+from psychopy import visual
 from psychopy.hardware import keyboard
-from psyexp_core.keyboard import clear_events, get_keys, wait_for_keys
+from psyexp_core.keyboard import clear_events, wait_for_key
 
 from heat_task import config
 from heat_task.task import display
-
-
-def wait_for_key(kb: keyboard.Keyboard | None, key_list: list[str]) -> str:
-    return wait_for_keys(kb, key_list)[0]
-
-
-def check_quit(kb: keyboard.Keyboard | None) -> None:
-    """Quit the experiment if a quit key has been pressed."""
-    if get_keys(kb, config.QUIT_KEYS):
-        core.quit()
 
 
 def wait_for_start(
@@ -31,9 +21,9 @@ def wait_for_start(
     while True:
         display.draw_crosshair(stimuli)
         win.flip()
-        key_name = wait_for_key(kb, [*config.START_KEYS, *config.QUIT_KEYS])
-        if key_name in config.QUIT_KEYS:
-            core.quit()
+        key_name = wait_for_key(
+            kb, config.START_KEYS, quit_keys=config.QUIT_KEYS, clear_first=False
+        )
         if key_name in config.START_KEYS:
             return
 
@@ -48,8 +38,8 @@ def run_end_screen(
     while True:
         display.draw_end(stimuli)
         win.flip()
-        key_name = wait_for_key(kb, [*config.END_KEYS, *config.QUIT_KEYS])
-        if key_name in config.QUIT_KEYS:
-            core.quit()
+        key_name = wait_for_key(
+            kb, config.END_KEYS, quit_keys=config.QUIT_KEYS, clear_first=False
+        )
         if key_name in config.END_KEYS:
             return

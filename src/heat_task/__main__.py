@@ -9,6 +9,7 @@ and heat_task.io, so run() stays a readable top-to-bottom script of the run.
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 from datetime import datetime
 from pathlib import Path
 
@@ -143,17 +144,38 @@ def run() -> None:
     # recorded time_s is already relative to START with no offset arithmetic.
     run_clock = core.Clock()
     file_stem = f"{session_info.subject_id}_{Path(session_info.run_file).stem}"
-    behavior_writer, trace_writer, net_event_writer = recording.make_writers(
-        run_dir, file_stem, save_net_events=_args.save_net_events
-    )
 
-    # ── POLLER & SEQUENCE LOOP ───────────────────────────────────────────────────
-    # Start the background status poller and run the sequence loop, tearing
-    # everything down in the finally block whatever happens.
-    poller = StatusPoller(session_info.host, session_info.port, run_clock)
-    poller.start()
-    halted_cleanly = False
-    try:
+    # Teardown is registered on an ExitStack as each resource is acquired, so it
+    # runs in reverse on every exit — normal, quit key, Ctrl-C, or error. The MMS
+    # halt is pushed last (so it runs first) and STOPs the test on a clean exit or
+    # ABORTs it otherwise, decided from whether an exception is propagating — no
+    # halted_cleanly flag needed.
+    def _halt_mms_on_exit(exc_type, exc, tb):
+        if exc_type is None:
+            logging.exp("Run ended normally: operator dismissed end screen")
+            _halt_mms(session_info.host, session_info.port, "stop", rcon)
+        else:
+            logging.warning(f"Run aborted: {exc_type.__name__}")
+            _halt_mms(session_info.host, session_info.port, "abort", rcon)
+        return False  # never suppress the exception
+
+    with ExitStack() as stack:
+        stack.callback(win.close)
+        stack.callback(logging.flush)
+
+        behavior_writer, trace_writer, net_event_writer = recording.make_writers(
+            run_dir, file_stem, save_net_events=_args.save_net_events
+        )
+        stack.callback(behavior_writer.close)
+        stack.callback(trace_writer.close)
+        if net_event_writer is not None:
+            stack.callback(net_event_writer.close)
+
+        poller = StatusPoller(session_info.host, session_info.port, run_clock)
+        poller.start()
+        stack.callback(poller.stop)
+        stack.push(_halt_mms_on_exit)
+
         with SequenceLiveView(rcon, len(run_config.sequences)) as view:
             runtime = SequenceRuntime(
                 win=win,
@@ -171,33 +193,8 @@ def run() -> None:
         exit_key = config.END_KEYS[0]
         rcon.print(f"[bold yellow]Press '{exit_key}' to exit the experiment...[/bold yellow]")
         run_end_screen(win, stimuli_obj, kb)
-        # Operator dismissed the end screen with the end key: stop the test cleanly.
-        logging.exp("Run ended normally: operator dismissed end screen with end key")
-        _halt_mms(session_info.host, session_info.port, "stop", rcon)
-        halted_cleanly = True
-    except KeyboardInterrupt:
-        # Ctrl-C in the terminal.
-        logging.warning("Run aborted: KeyboardInterrupt (Ctrl-C)")
-    except SystemExit:
-        # A quit key (escape) was pressed; check_quit/the phase screens call core.quit().
-        logging.warning("Run aborted: quit key pressed")
-    except Exception as exc:  # noqa: BLE001 — log any mid-run failure before teardown
-        logging.error(f"Run aborted: unexpected error: {exc!r}")
-    finally:
-        # ── CLEANUP ───────────────────────────────────────────────────────────
-        # Any path that didn't reach the clean stop above (Ctrl-C, escape/quit,
-        # or a mid-run error) is an early termination — abort the test so the
-        # thermode doesn't keep running after we tear down.
-        if not halted_cleanly:
-            _halt_mms(session_info.host, session_info.port, "abort", rcon)
-        poller.stop()
-        behavior_writer.close()
-        trace_writer.close()
-        if net_event_writer is not None:
-            net_event_writer.close()
-        logging.flush()
-        win.close()
-        core.quit()
+
+    core.quit()
 
 
 if __name__ == "__main__":

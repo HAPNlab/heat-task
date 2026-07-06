@@ -401,7 +401,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "psychopy", specifier = ">=2025.1" },
-    { name = "psyexp-core", specifier = ">=0.7.0" },
+    { name = "psyexp-core", specifier = ">=0.9.0" },
     { name = "pydantic", specifier = ">=2" },
     { name = "rich", specifier = ">=15.0.0" },
     { name = "ruff", specifier = ">=0.15.4" },
@@ -917,7 +917,7 @@ wheels = [
 
 [[package]]
 name = "psyexp-core"
-version = "0.7.0"
+version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
@@ -931,9 +931,9 @@ dependencies = [
     { name = "questionary" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/52/0bed01d3b94eaeaafce49567b6d639e6db63524f00420a6d87324e84ee57/psyexp_core-0.7.0.tar.gz", hash = "sha256:691ceef19c6f2a78faac0c2de25813ca011f8cea1c03fbcee1b5b440fc996a91", size = 136293, upload-time = "2026-06-25T21:33:05.697Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/1b/50431d9fbb725aa2f85e4948612e588188855035f1b79542f4ef6cc0e85c/psyexp_core-0.9.0.tar.gz", hash = "sha256:215fb7309541d9e13a0b6e3398a44b2b13276e7791dc38c7dd314aaf7d87e561", size = 138067, upload-time = "2026-07-06T19:19:47.121Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/12/fd0e4e734e0f981c55ef1a75114a94a1222a229d4599f4a1d8cf246221cb/psyexp_core-0.7.0-py3-none-any.whl", hash = "sha256:569614eae8a487649eb9c09f6c09272687301aed66f4983a890a2ff7bbd539db", size = 24368, upload-time = "2026-06-25T21:33:04.13Z" },
+    { url = "https://files.pythonhosted.org/packages/96/6c/56061abc8cbb10d2272cca1c46664f466c25950cab872b66cfe8e0070fc9/psyexp_core-0.9.0-py3-none-any.whl", hash = "sha256:5e6ed07bd4d7a0b8142d9fe0d6d2c7d9e73dcc7e293cf082243cb6e37c8bedb8", size = 25199, upload-time = "2026-07-06T19:19:45.934Z" },
 ]
 
 [[package]]
