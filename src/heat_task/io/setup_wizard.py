@@ -30,7 +30,7 @@ class LastConnection(BaseModel):
 
     @field_validator("host")
     @classmethod
-    def _non_empty_host(cls, value: str | None) -> str | None:
+    def _normalize_host(cls, value: str | None) -> str | None:
         if value is None:
             return None
         cleaned = value.strip()
