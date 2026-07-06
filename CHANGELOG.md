@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.0-rc.3
+
+### Changed
+
+- Bumped `psyexp-core` to `v0.9.0`.
+- Consumed the shared `psyexp_core.keyboard` helpers in place of heat's local
+  `wait_for_key`/`check_quit`.
+- Reworked `__main__` teardown to use a `contextlib.ExitStack`, so each resource
+  registers its own cleanup and teardown runs in reverse on every exit.
+- Validated the saved last-connection state with a pydantic model instead of
+  hand-rolled JSON parsing.
+
+### Fixed
+
+- Restored a remembered screen index of `0`, which was previously dropped by a
+  truthiness default when loading the last-connection state.
+
 ## v1.0.0-rc.2
 
 ### Changed
