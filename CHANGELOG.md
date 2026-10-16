@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.0-rc.4
+
+### Added
+
+- Run files for the `SingleProbe_45-46`, `SingleProbe_46-47`, and
+  `SingleProbe_46-48` MMS programs (Run1/Run2 each), generated from the MMS
+  `.ats` exports. Each uses a new program word (`00000001`–`00000110`) that must
+  be configured to match in MMS.
+- Anaconda/Miniconda launch instructions in the usage guide.
+- psychtoolbox lab-wheel install instructions for both UV and conda.
+
+### Fixed
+
+- Conda environment on Windows failing with "DLL load failed while importing
+  QtCore": `environment.yml` no longer installs `hdf5`/`openblas`/`lapack`,
+  whose conda-forge ICU shadowed the Windows system ICU that PyQt6 needs.
+
+### Removed
+
+- The macOS `brew install hdf5 openblas lapack` setup step; the PyPI wheels
+  bundle these libraries.
+
 ## v1.0.0-rc.3
 
 ### Changed
