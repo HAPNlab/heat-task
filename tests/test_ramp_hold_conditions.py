@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from heat_task.io.conditions import load_run_config, parse_program_word
+from heat_task.io.conditions import conditions_dir, load_run_config, parse_program_word
 
 
 def test_parse_program_word_accepts_8_bit_string() -> None:
@@ -63,3 +63,27 @@ def test_load_run_config_rejects_target_below_baseline(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="must be greater than baseline"):
         load_run_config(run_file)
+
+
+def test_load_run_config_rejects_reserved_command_word(tmp_path: Path) -> None:
+    run_file = tmp_path / "run.toml"
+    run_file.write_text(
+        "\n".join(
+            [
+                'program_word = "00000010"',
+                "",
+                "[[sequence]]",
+                "baseline = 35.0",
+                "target_temp = 46.0",
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match="reserved by MMS for the START command"):
+        load_run_config(run_file)
+
+
+def test_bundled_run_files_have_unique_unreserved_words() -> None:
+    run_files = sorted(conditions_dir().glob("*.toml"))
+    words = [load_run_config(path).program_word for path in run_files]
+    assert len(set(words)) == len(words)

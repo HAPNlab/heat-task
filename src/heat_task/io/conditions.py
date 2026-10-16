@@ -15,6 +15,10 @@ from pydantic import (
     model_validator,
 )
 
+from heat_task.medoc.models import Command
+
+_RESERVED_MAX = max(Command)
+
 
 class SequenceConfig(BaseModel):
     """One MMS *sequence*: a baseline → ramp-up → hold → ramp-down → baseline
@@ -54,7 +58,14 @@ class RunConfig(BaseModel):
     @field_validator("program_word")
     @classmethod
     def _valid_program_word(cls, value: str) -> str:
-        parse_program_word(value)  # raises ValueError on a malformed word
+        program_id = parse_program_word(value)  # raises ValueError on a malformed word
+        # MMS maps external-control commands to these same 8-bit words, so a
+        # program set to one of them would be shadowed by that command.
+        if program_id in Command._value2member_map_:
+            raise ValueError(
+                f"program_word {value} is reserved by MMS for the "
+                f"{Command(program_id).name} command; use {_RESERVED_MAX + 1:08b} or above"
+            )
         return value
 
     @computed_field  # type: ignore[prop-decorator]

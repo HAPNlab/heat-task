@@ -1,6 +1,6 @@
 # Mirrors MMS program SingleProbe_46-48_Run1 (probe TSA).
 # program_word is the external-control code; MMS must be set to the same word.
-program_word = "00000101"
+program_word = "00010100"
 
 [[sequence]]
 baseline = 35.0

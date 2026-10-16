@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- The `SingleProbe_45-46`/`46-47`/`46-48` run files used program words
+  `00000001`–`00000110`, which MMS reserves for its external-control commands.
+  They now use `00010000`–`00010101` (in file order 45-46 Run1 → 46-48 Run2);
+  update the MMS programs to match. Run files with a reserved word (`00000000`–
+  `00001110`) are now rejected at load time.
+
 ## v1.0.0-rc.4
 
 ### Added

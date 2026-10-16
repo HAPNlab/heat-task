@@ -104,7 +104,10 @@ baseline_duration_s = 30.0         # ISI Min/Max (sec)
 ```
 
 `program_word` is an 8-bit string that encodes which MMS program to `SELECT_TEST`
-(decoded to `program_id`); it is not a per-sequence parameter.
+(decoded to `program_id`); it is not a per-sequence parameter. Words
+`00000000`–`00001110` are reserved: MMS assigns them to its external-control
+commands (Select Test, Start, Pause, … Reset response), so run files must use
+`00001111` or above.
 
 ## Detection: rates and tolerances
 
