@@ -17,9 +17,26 @@ The task does **not** read the program from MMS. It selects the program and send
 
 ## Launching the Task
 
+The task runs from either a UV project environment (development) or an Anaconda / Miniconda
+environment (production). Setting up either one is covered in the
+[Development Guide](development.md#quick-start).
+
+**UV:**
+
 ```bash
 uv run heat-task
 ```
+
+**Anaconda / Miniconda:**
+
+```bash
+conda activate heat-task
+heat-task
+```
+
+`environment.yml` installs the package into the conda env, so the `heat-task` and `medoc` console
+scripts are on `PATH` once the env is active. Commands in this guide are written for UV; in a
+conda env, drop the `uv run` prefix (e.g. `medoc monitor 192.168.1.100 15`).
 
 Options:
 
