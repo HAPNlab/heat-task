@@ -1,0 +1,40 @@
+# Mirrors MMS program SingleProbe_46-48_Run2 (probe TSA).
+# program_word is the external-control code; MMS must be set to the same word.
+program_word = "00000110"
+
+[[sequence]]
+baseline = 35.0
+time_before_s = 20.0
+target_temp = 46.0
+target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
+
+[[sequence]]
+baseline = 35.0
+target_temp = 46.0
+target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
+
+[[sequence]]
+baseline = 35.0
+target_temp = 48.0
+target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
+
+[[sequence]]
+baseline = 35.0
+target_temp = 46.0
+target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
+
+[[sequence]]
+baseline = 35.0
+target_temp = 48.0
+target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
+
+[[sequence]]
+baseline = 35.0
+target_temp = 48.0
+target_hold_duration_s = 30.0
+baseline_duration_s = 30.0
