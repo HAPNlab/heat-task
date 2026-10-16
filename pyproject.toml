@@ -16,7 +16,7 @@ dependencies = [
 ]
 # Note: psychtoolbox is NOT declared here. PyPI has no arm64 wheel for it, so on
 # Apple Silicon install it manually from the lab build, e.g.
-#   uv pip install ../Psychtoolbox-3/dist/psychtoolbox-3.0.22.2-cp311-cp311-macosx_10_9_universal2.whl
+#   uv pip install <path/to/psychtoolbox.whl>   (see docs/development.md)
 # Because `uv sync` is exact by default it removes the manual install — run it as
 # `uv sync --inexact` to keep psychtoolbox. (`uv run`'s implicit sync is inexact,
 # so it leaves the manual install alone.) On Windows the lab build is needed

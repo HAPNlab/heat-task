@@ -11,29 +11,41 @@ This guide covers setting up and developing `heat-task`.
 - A Medoc MMS thermode (or the `medoc` CLI against a reachable MMS) for live runs
 - macOS or Windows (PsychoPy supports both)
 
-### macOS
-
-PsychoPy's heavy binary libs build more reliably with these installed (the conda env provides the
-equivalents):
-
-```bash
-brew install hdf5 openblas lapack
-```
-
 ### psychtoolbox
 
 `psychtoolbox` is **not** declared in `pyproject.toml`: PyPI has no arm64 wheel for it. On Apple
-Silicon, install it manually from the lab build, e.g.
+Silicon, install it manually from the lab build. On Windows the lab build is needed similarly;
+otherwise PsychoPy's own transitive `psychtoolbox` (`<3.0.20`, non-arm64) applies.
+
+Below, `<path/to/psychtoolbox.whl>` stands for wherever your copy of the lab wheel lives. Pick the
+wheel matching the environment: `cp311` (Python 3.11) and the platform tag — e.g.
+`macosx_…_universal2` on macOS, `win_amd64` on Windows.
+
+#### Installing the lab wheel with UV
 
 ```bash
-uv pip install ../Psychtoolbox-3/dist/psychtoolbox-3.0.22.2-cp311-cp311-macosx_10_9_universal2.whl
+uv pip install <path/to/psychtoolbox.whl>
 ```
 
 Because `uv sync` is exact by default it removes the manual install — run it as `uv sync --inexact`
 to keep psychtoolbox. (`uv run`'s implicit sync is *inexact*, so it leaves the manual install alone;
 pass `--no-sync` only when you are also overlaying an editable `psyexp-core`, which *is* in the lock
-and would otherwise be reverted.) On Windows the lab build is needed similarly; otherwise PsychoPy's
-own transitive `psychtoolbox` (`<3.0.20`, non-arm64) applies.
+and would otherwise be reverted.)
+
+#### Installing the lab wheel with conda
+
+Activate the env, then install the wheel with pip:
+
+```bash
+conda activate heat-task
+pip install --force-reinstall --no-deps <path/to/psychtoolbox.whl>
+```
+
+The conda env resolves PsychoPy fresh from PyPI, and current PsychoPy already pulls `psychtoolbox`
+from PyPI. If that has the same version number as the lab build, a plain `pip install` skips the
+wheel as "already installed" — `--force-reinstall` replaces it, and `--no-deps` leaves numpy etc.
+alone. Conda never syncs the env, so the manual install stays put; only re-running
+`pip install -e .` or `conda env update` may swap it back.
 
 ## Quick Start
 
@@ -50,7 +62,7 @@ uv run heat-task
 
 ### Anaconda / conda (production)
 
-Conda provisions Python (and the heavy binary libs), then pip installs the package from
+Conda provisions only Python and pip; pip then installs the package from
 `pyproject.toml`:
 
 ```bash
@@ -69,8 +81,8 @@ pip install -e ".[dev]"
 
 `pyproject.toml` is the shared, standard manifest. The UV-specific pieces (`[tool.uv.*]`, `uv.lock`)
 are ignored by pip/conda, so the conda install resolves dependencies fresh from PyPI rather than
-from the lockfile. `psychtoolbox` is still not pulled in automatically (see below) — install the lab
-build manually after creating the environment.
+from the lockfile. That currently brings in `psychtoolbox` from PyPI; to use the lab build
+instead, see [Installing the lab wheel with conda](#installing-the-lab-wheel-with-conda).
 
 > **Heads up — `uv run` auto-syncs the venv from `uv.lock` on every launch** (inexactly: it won't
 > remove your manually-installed psychtoolbox, but it *will* revert a local editable `psyexp-core`
