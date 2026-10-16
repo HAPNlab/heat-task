@@ -4,10 +4,10 @@ channels:
 dependencies:
   - python=3.11
   - pip
-  # Heavy binary libs that benefit from conda (mirrors the macOS brew deps).
-  - hdf5
-  - openblas
-  - lapack
+  # Keep conda to just Python + pip. The PyPI wheels (numpy, scipy, tables, …)
+  # bundle their own native libs; extra conda libs land in Library\bin, which
+  # Windows searches first — e.g. conda-forge's icuuc.dll shadows the system ICU
+  # that PyQt6's Qt6Core.dll needs ("DLL load failed while importing QtCore").
   - pip:
       # pip reads pyproject.toml — the single source of truth for the package
       # and its PyPI dependencies. Use ".[dev]" instead of "." to include the
