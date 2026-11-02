@@ -186,8 +186,5 @@ class TestReturnCodeDescribe:
         assert ReturnCode.describe(0x3000) == "WAITING_MANUAL_OPERATION"
         assert ReturnCode.describe(0x4000) == "SAFETY_ERROR"
 
-    def test_device_and_command_parts_combine(self):
-        assert ReturnCode.describe(0x2002) == "SAFETY_WARNING | ILLEGAL_STATE"
-
     def test_unknown(self):
         assert ReturnCode.describe(77) == "UNKNOWN(77)"

@@ -43,15 +43,24 @@ def require_ok(console: Console, label: str, response: MedocResponse | None) -> 
 
 
 def confirm_started(host: str, port: int, rcon: Console, response: MedocResponse | None) -> None:
-    """Assert that START actually started the MMS test.
+    """Make sure START actually started the test on MMS; raise if it didn't.
 
-    A reply must be OK. No reply at all is tolerated (as in the medoc CLI) only
-    if MMS then reports the test running: in Safe Mode MMS ignores every
-    command except STATUS, so a silent START otherwise looks like a normal run
-    while the thermode sits unpowered."""
+    If MMS replied to START, the reply's return code says whether it worked.
+
+    If START got no reply, that alone isn't treated as a failure, because MMS
+    can answer late (the medoc CLI tolerates this too). Instead we ask MMS with
+    STATUS whether the test is running. This matters because in Safe Mode MMS
+    ignores START (and every command except STATUS): without this check the
+    task would carry on as if the run had started while the thermode stays
+    unpowered.
+    """
+    # MMS replied: the reply itself says whether START worked.
     if response is not None:
         require_ok(rcon, "MMS START", response)
         return
+
+    # No reply: poll STATUS until the test shows as running, giving up after
+    # START_CONFIRM_TIMEOUT_S.
     deadline = time.monotonic() + config.START_CONFIRM_TIMEOUT_S
     while True:
         status = send_command(host, port, "status")

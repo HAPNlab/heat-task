@@ -40,11 +40,14 @@ class TestState(IntEnum):
 
 
 class ReturnCode(IntEnum):
-    """Result code returned by MMS after each command (TSA 2 manual, Table 46).
+    """Result code MMS returns with every response (TSA 2 manual, Table 46).
 
-    These are plain values, not bit flags: 3 is ILLEGAL_TEST_STATE (not
-    ILLEGAL_ARG | ILLEGAL_STATE) and 0x3000 is WAITING_MANUAL_OPERATION (not
-    DEVICE_COMM_ERROR | SAFETY_WARNING). Decode a raw value with :meth:`describe`.
+    Each number names exactly one condition, so look a code up as a whole
+    rather than testing its individual bits. Testing bits gives wrong answers:
+    3 is ILLEGAL_TEST_STATE, even though its bits are those of ILLEGAL_ARG (1)
+    plus ILLEGAL_STATE (2), and 0x3000 is WAITING_MANUAL_OPERATION, even though
+    its bits are those of DEVICE_COMM_ERROR plus SAFETY_WARNING. Use
+    :meth:`describe` to turn a raw code into its name.
     """
     OK = 0x0000
     ILLEGAL_ARG = 0x0001
@@ -57,16 +60,11 @@ class ReturnCode(IntEnum):
 
     @staticmethod
     def describe(code: int) -> str:
-        """Name a raw return code. An unlisted value is split into its device
-        (high nibble) and command (low bits) parts in case MMS combines one of
-        each; anything else is reported as UNKNOWN."""
-        known = {int(member): member.name for member in ReturnCode}
-        if code in known:
-            return known[code]
-        device, command = code & 0xF000, code & 0x0FFF
-        if device in known and command in known and device and command:
-            return f"{known[device]} | {known[command]}"
-        return f"UNKNOWN({code})"
+        """Name a raw return code, or UNKNOWN(<code>) if the manual doesn't list it."""
+        try:
+            return ReturnCode(code).name
+        except ValueError:
+            return f"UNKNOWN({code})"
 
 
 @dataclass(frozen=True, slots=True)
