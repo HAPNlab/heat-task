@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.0-rc.6
+
+### Added
+
+- `heat-task --poll-interval SECONDS` sets the gap between MMS status polls
+  (default unchanged at `0.01`, ~100 Hz). The value is printed at startup and
+  recorded in the run manifest.
+- `device_return_code` column in `temperature_trace_*.csv`: the MMS return code
+  on each status reply, so a safety warning, safety error or device
+  communication error during a run is recorded.
+
+### Fixed
+
+- A `START` that MMS never answered was treated as success, so a run could
+  carry on after MMS ignored it (e.g. in Safe Mode) while the thermode stayed
+  unpowered. The task now checks with `STATUS` that the test is running and
+  aborts after 3 s if it is not.
+- MMS return codes were decoded bit by bit, so `3` was reported as three errors
+  and `0x3000` as a device communication error plus a safety warning. Codes are
+  now looked up whole, and `WAITING_MANUAL_OPERATION` (`0x3000`) is recognised.
+
 ## v1.0.0-rc.5
 
 ### Fixed
