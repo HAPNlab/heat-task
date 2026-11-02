@@ -116,9 +116,10 @@ polls record `StatusSample.rtt_ms`, the measured round-trip time.
 
 | Constant | Value | Why |
 |---|---|---|
-| `POLL_INTERVAL_S` | `0.01` (~100 Hz) | Caps poll rate. Polling with no gap hammers MMS at the raw link rate, which provokes dropped/late responses and floods the trace with near-duplicate rows. 100 Hz is well above the thermode's real update rate. |
+| `POLL_INTERVAL_S` | `0.01` (~100 Hz) | Caps poll rate. Polling with no gap hammers MMS at the raw link rate, which provokes dropped/late responses and floods the trace with near-duplicate rows. 100 Hz is well above the thermode's real update rate. Default for `heat-task --poll-interval`; Medoc's own examples poll at 0.05–0.1 s. |
 | `POLL_RECV_TIMEOUT_S` | `0.5` | Receive timeout for the **poller's** socket. A status query returns in ms on a healthy link, so this bounds how long one stalled poll can block before it's reported and retried. |
 | `RECV_TIMEOUT_S` | `2.0` | Receive timeout for **one-off** commands (`select_test`, `start`), which can legitimately take longer; kept generous. |
+| `START_CONFIRM_TIMEOUT_S` | `3.0` | If `START` gets no reply, how long to poll `STATUS` for a running test before aborting. MMS ignores every command but `STATUS` in Safe Mode, so a silent `START` is otherwise indistinguishable from a run with an unpowered thermode. |
 | `CONNECT_TIMEOUT_S` | `5.0` | TCP connect timeout. |
 | `RECONNECT_BACKOFF_S` | `0.05` | Initial wait after a connect failure before retrying. |
 | `RECONNECT_BACKOFF_MAX_S` | `1.0` | Ceiling for the exponential backoff. |

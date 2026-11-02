@@ -21,6 +21,13 @@ _parser.add_argument(
     action="store_true",
     help="Write net_events_*.csv alongside behavioral data for network diagnostics",
 )
+_parser.add_argument(
+    "--poll-interval",
+    type=float,
+    default=None,
+    metavar="SECONDS",
+    help="Gap between MMS status polls (default: config.POLL_INTERVAL_S, 0.01 = ~100 Hz)",
+)
 _args, _ = _parser.parse_known_args()
 
 from psychopy import core
@@ -39,7 +46,6 @@ from heat_task import config
 from heat_task.io import recording
 from heat_task.io.conditions import load_run_config
 from heat_task.io.setup_wizard import run_wizard
-from heat_task.medoc.models import ReturnCode
 from heat_task.task import display, instructions, mms
 from heat_task.task.console import SequenceLiveView
 from heat_task.task.framerate import resolve_frame_rate
@@ -61,6 +67,7 @@ def _halt_mms(host: str, port: int, command: str, rcon: Console) -> None:
 def run() -> None:
     # ── SESSION & CONFIG ──────────────────────────────────────────────────────
     session_info = run_wizard()
+    poll_interval_s = config.POLL_INTERVAL_S if _args.poll_interval is None else _args.poll_interval
     run_config = load_run_config(session_info.run_file)
     session_time = datetime.now()
 
@@ -92,6 +99,7 @@ def run() -> None:
         f"program-word=[cyan]{run_config.program_word}[/cyan]"
     )
     rcon.print(f"[bold]Frame rate:[/bold] {frame_rate:.1f} Hz")
+    rcon.print(f"[bold]MMS poll interval:[/bold] {poll_interval_s:g} s")
     logging.exp(
         f"Session: subject={session_info.subject_id}  run-file={session_info.run_file}  "
         f"host={session_info.host}"
@@ -106,7 +114,14 @@ def run() -> None:
     # ── MANIFEST ──────────────────────────────────────────────────────────────
     # Snapshot all run parameters before anything can fail.
     recording.write_manifest(
-        run_dir, session_info, session_time, run_config, frame_rate, screen_diag, win_res
+        run_dir,
+        session_info,
+        session_time,
+        run_config,
+        frame_rate,
+        screen_diag,
+        win_res,
+        poll_interval_s=poll_interval_s,
     )
 
     # ── SELECT MMS PROGRAM ────────────────────────────────────────────────────
@@ -135,14 +150,14 @@ def run() -> None:
     wait_for_start(win, stimuli_obj, kb)
 
     start_response = mms.send_command(session_info.host, session_info.port, "start")
-    if start_response is not None and start_response.return_code != ReturnCode.OK:
-        raise RuntimeError(f"MMS START failed with return code {start_response.return_code}")
 
     # ── RUN CLOCK & OUTPUT FILES ──────────────────────────────────────────────
     # The run clock reads 0 at the START instant; constructing a core.Clock resets
     # it to now. Both the poller and the sequence loop read this one object, so every
-    # recorded time_s is already relative to START with no offset arithmetic.
+    # recorded time_s is already relative to START with no offset arithmetic. It is
+    # created before confirm_started so a slow confirmation can't shift time zero.
     run_clock = core.Clock()
+    mms.confirm_started(session_info.host, session_info.port, rcon, start_response)
     file_stem = f"{session_info.subject_id}_{Path(session_info.run_file).stem}"
 
     # Teardown is registered on an ExitStack as each resource is acquired, so it
@@ -171,7 +186,7 @@ def run() -> None:
         if net_event_writer is not None:
             stack.callback(net_event_writer.close)
 
-        poller = StatusPoller(session_info.host, session_info.port, run_clock)
+        poller = StatusPoller(session_info.host, session_info.port, run_clock, poll_interval_s)
         poller.start()
         stack.callback(poller.stop)
         stack.push(_halt_mms_on_exit)

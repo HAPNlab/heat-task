@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from heat_task.medoc.models import Command
+from heat_task.medoc.models import Command, ReturnCode
 from heat_task.medoc.protocol import (
     RESPONSE_FORMAT,
     RESPONSE_HEADER_SIZE,
@@ -177,3 +177,17 @@ class TestDecodeResponse:
         assert resp.system_state == 99
         assert resp.test_state == 88
         assert resp.return_code == 77
+
+
+class TestReturnCodeDescribe:
+    def test_listed_values_are_exact_not_flags(self):
+        assert ReturnCode.describe(0) == "OK"
+        assert ReturnCode.describe(3) == "ILLEGAL_TEST_STATE"
+        assert ReturnCode.describe(0x3000) == "WAITING_MANUAL_OPERATION"
+        assert ReturnCode.describe(0x4000) == "SAFETY_ERROR"
+
+    def test_device_and_command_parts_combine(self):
+        assert ReturnCode.describe(0x2002) == "SAFETY_WARNING | ILLEGAL_STATE"
+
+    def test_unknown(self):
+        assert ReturnCode.describe(77) == "UNKNOWN(77)"

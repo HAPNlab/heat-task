@@ -4,6 +4,7 @@ setup/select steps run() walks through before the task begins."""
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 from psychopy import core, gui, logging
@@ -12,7 +13,7 @@ from rich.panel import Panel
 
 from heat_task import config
 from heat_task.medoc.client import MedocClient
-from heat_task.medoc.models import MedocResponse, ReturnCode
+from heat_task.medoc.models import MedocResponse, ReturnCode, TestState
 
 if TYPE_CHECKING:
     from heat_task.io.conditions import RunConfig
@@ -39,6 +40,31 @@ def require_ok(console: Console, label: str, response: MedocResponse | None) -> 
         flags = ReturnCode.describe(response.return_code)
         raise RuntimeError(f"{label} failed: {flags} (code {response.return_code})")
     console.print(f"[green]{label} ok[/green]")
+
+
+def confirm_started(host: str, port: int, rcon: Console, response: MedocResponse | None) -> None:
+    """Assert that START actually started the MMS test.
+
+    A reply must be OK. No reply at all is tolerated (as in the medoc CLI) only
+    if MMS then reports the test running: in Safe Mode MMS ignores every
+    command except STATUS, so a silent START otherwise looks like a normal run
+    while the thermode sits unpowered."""
+    if response is not None:
+        require_ok(rcon, "MMS START", response)
+        return
+    deadline = time.monotonic() + config.START_CONFIRM_TIMEOUT_S
+    while True:
+        status = send_command(host, port, "status")
+        if status is not None and status.test_state == TestState.RUNNING:
+            rcon.print("[yellow]MMS START gave no reply, but the test is running[/yellow]")
+            return
+        if time.monotonic() >= deadline:
+            state = "no reply" if status is None else f"test_state={status.test_state}"
+            raise RuntimeError(
+                "MMS START gave no reply and the test is not running "
+                f"({state}). Check the MMS Safety indicator; Safe Mode needs a Self-Test."
+            )
+        time.sleep(config.START_CONFIRM_POLL_S)
 
 
 def prompt_setup(rcon: Console) -> None:
