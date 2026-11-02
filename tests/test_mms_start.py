@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import pytest
-from rich.console import Console
 
-from heat_task import config
-from heat_task.medoc.models import MedocResponse, ReturnCode
-from heat_task.medoc.models import TestState as MedocTestState
-from heat_task.task import mms
+# heat_task.task.mms imports PsychoPy (and rich) at module level; the headless CI
+# job installs neither, so skip there rather than fail collection.
+pytest.importorskip("psychopy")
+
+from rich.console import Console  # noqa: E402
+
+from heat_task import config  # noqa: E402
+from heat_task.medoc.models import MedocResponse, ReturnCode  # noqa: E402
+from heat_task.medoc.models import TestState as MedocTestState  # noqa: E402
+from heat_task.task import mms  # noqa: E402
 
 
 def _response(
