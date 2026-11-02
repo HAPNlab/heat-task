@@ -19,6 +19,10 @@ from __future__ import annotations
 POLL_INTERVAL_S = 0.01
 CONNECT_TIMEOUT_S = 5.0
 RECV_TIMEOUT_S = 2.0
+# When START gets no reply, how long to poll STATUS for the test to be running
+# before aborting, and the gap between those polls.
+START_CONFIRM_TIMEOUT_S = 3.0
+START_CONFIRM_POLL_S = 0.25
 # Shorter receive timeout for the status poller's long-lived socket. A status
 # query returns in milliseconds on a healthy link, so a stall past this bounds
 # the freeze before we drop and reconnect to resynchronise the stream.

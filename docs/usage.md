@@ -43,6 +43,7 @@ Options:
 | Flag | Effect |
 |------|--------|
 | `--save-net-events` | Also write `net_events_*.csv` (status-poll failures) alongside the behavioral data, for network diagnostics |
+| `--poll-interval SECONDS` | Gap between MMS status polls (default `0.01`, ~100 Hz). Raise it (e.g. `0.05` or `0.1`, the pacing of Medoc's own examples) to rule out poll load on MMS; recorded in the manifest |
 
 ## Setup Wizard
 
@@ -121,7 +122,12 @@ Onset columns hold a time in seconds, or a placeholder string if the phase was n
 One row is written per status poll (~100 Hz), so the trace is the run sampled at the poll rate:
 `sample_n`, `time_s`, `sequence_n`, `baseline_temp`, `target_temp`, `raw_temperature`,
 `rolling_mean_temperature`, `phase`, `phase_change_event`, `device_system_state`,
-`device_test_state`, `device_clock_ms`, `poll_latency_ms`.
+`device_test_state`, `device_return_code`, `device_clock_ms`, `poll_latency_ms`.
+
+`device_return_code` is the MMS return code on that status reply (`ok` normally). A
+`safety_warning`, `safety_error` or `device_comm_error` there means MMS reported a fault
+during the run; a thermode that stays cold is often in Safe Mode (see the TSA 2 manual's
+"Thermode does not heat" entry).
 
 ### net_events CSV (`--save-net-events` only)
 

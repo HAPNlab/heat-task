@@ -31,6 +31,7 @@ class StatusSample:
     temperature: float
     system_state: int
     test_state: int
+    return_code: int
     test_time_ms: int
     rtt_ms: float
 
@@ -47,10 +48,11 @@ class NetEvent:
 
 
 class StatusPoller:
-    def __init__(self, host: str, port: int, clock: core.Clock) -> None:
+    def __init__(self, host: str, port: int, clock: core.Clock, interval_s: float) -> None:
         self._host = host
         self._port = port
         self._clock = clock
+        self._interval_s = interval_s
         self._stop_event = threading.Event()
         self._queue: queue.SimpleQueue[StatusSample] = queue.SimpleQueue()
         self._events: queue.SimpleQueue[NetEvent] = queue.SimpleQueue()
@@ -141,10 +143,11 @@ class StatusPoller:
                     temperature=response.temperature,
                     system_state=response.system_state,
                     test_state=response.test_state,
+                    return_code=response.return_code,
                     test_time_ms=response.test_time,
                     rtt_ms=(last_good - sample_time) * 1000.0,
                 )
             )
 
-            if config.POLL_INTERVAL_S > 0:
-                time.sleep(config.POLL_INTERVAL_S)
+            if self._interval_s > 0:
+                time.sleep(self._interval_s)

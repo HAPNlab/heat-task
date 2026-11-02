@@ -211,7 +211,7 @@ Validation (`io/conditions.py`): `program_word` must be exactly 8 bits, each seq
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `POLL_INTERVAL_S` | `0.01` | Min gap between status polls (~100 Hz) |
+| `POLL_INTERVAL_S` | `0.01` | Default gap between status polls (~100 Hz); override with `--poll-interval` |
 | `POLL_RECV_TIMEOUT_S` | `0.5` | Reply deadline for the status poller's socket |
 | `SMOOTHING_WINDOW` | `5` | Samples averaged for the smoothed temperature |
 | `TREND_WINDOW` | `4` | Samples averaged for the slope / trend direction |

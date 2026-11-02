@@ -33,7 +33,7 @@ from heat_task import config
 from heat_task.io import recording
 from heat_task.io.conditions import RunConfig, SequenceConfig
 from heat_task.medoc.cli.formatting import enum_name
-from heat_task.medoc.models import SystemState, TestState
+from heat_task.medoc.models import ReturnCode, SystemState, TestState
 from heat_task.task import display
 from heat_task.task.console import SequenceLiveView
 from heat_task.task.phase_tracker import Phase, PhaseTracker, PhaseTrackerConfig
@@ -228,6 +228,7 @@ def _drain_samples(
                 phase_change_event=update.event or "",
                 device_system_state=enum_name(SystemState, sample.system_state).lower(),
                 device_test_state=enum_name(TestState, sample.test_state).lower(),
+                device_return_code=ReturnCode.describe(sample.return_code).lower(),
                 device_clock_ms=sample.test_time_ms,
                 poll_latency_ms=round(sample.rtt_ms, 3),
             )

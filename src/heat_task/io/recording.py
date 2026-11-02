@@ -51,6 +51,7 @@ class TraceSample:
     phase_change_event: str
     device_system_state: str
     device_test_state: str
+    device_return_code: str
     device_clock_ms: int
     poll_latency_ms: float
 
@@ -95,6 +96,7 @@ TRACE_COLUMNS = [
     "phase_change_event",
     "device_system_state",
     "device_test_state",
+    "device_return_code",
     "device_clock_ms",
     "poll_latency_ms",
 ]
@@ -159,6 +161,8 @@ def write_manifest(
     frame_rate: float,
     screen_diag: ScreenDiagnostics,
     win_res: list[int],
+    *,
+    poll_interval_s: float,
 ) -> None:
     """Write the run manifest via the shared harness, injecting the heat-task
     header and study parameters; psyexp_core fills in system/display/process."""
@@ -171,6 +175,7 @@ def write_manifest(
         "screen_index": session_info.screen_index,
         "program_word": run_config.program_word,
         "program_id": run_config.program_id,
+        "poll_interval_s": poll_interval_s,
         "sequences": [
             {
                 "baseline": seq.baseline,

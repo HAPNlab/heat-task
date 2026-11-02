@@ -40,28 +40,31 @@ class TestState(IntEnum):
 
 
 class ReturnCode(IntEnum):
-    """Result code returned by MMS after each command.
+    """Result code MMS returns with every response (TSA 2 manual, Table 46).
 
-    The non-zero codes are bit flags that can combine, so a raw value is decoded
-    with :meth:`describe` rather than a plain ``ReturnCode(value)`` lookup.
+    Each number names exactly one condition, so look a code up as a whole
+    rather than testing its individual bits. Testing bits gives wrong answers:
+    3 is ILLEGAL_TEST_STATE, even though its bits are those of ILLEGAL_ARG (1)
+    plus ILLEGAL_STATE (2), and 0x3000 is WAITING_MANUAL_OPERATION, even though
+    its bits are those of DEVICE_COMM_ERROR plus SAFETY_WARNING. Use
+    :meth:`describe` to turn a raw code into its name.
     """
-    OK = 0
-    ILLEGAL_ARG = 1
-    ILLEGAL_STATE = 2
-    ILLEGAL_TEST_STATE = 3
-    DEVICE_COMM_ERROR = 4096
-    SAFETY_WARNING = 8192
-    SAFETY_ERROR = 16384
+    OK = 0x0000
+    ILLEGAL_ARG = 0x0001
+    ILLEGAL_STATE = 0x0002
+    ILLEGAL_TEST_STATE = 0x0003
+    DEVICE_COMM_ERROR = 0x1000
+    SAFETY_WARNING = 0x2000
+    WAITING_MANUAL_OPERATION = 0x3000
+    SAFETY_ERROR = 0x4000
 
     @staticmethod
     def describe(code: int) -> str:
-        """Decode a bitfield return code into human-readable flag names."""
-        flags = [
-            member.name
-            for member in ReturnCode
-            if member is not ReturnCode.OK and code & int(member)
-        ]
-        return " | ".join(flags) if flags else f"UNKNOWN({code})"
+        """Name a raw return code, or UNKNOWN(<code>) if the manual doesn't list it."""
+        try:
+            return ReturnCode(code).name
+        except ValueError:
+            return f"UNKNOWN({code})"
 
 
 @dataclass(frozen=True, slots=True)

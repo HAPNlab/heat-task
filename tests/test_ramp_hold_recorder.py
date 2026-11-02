@@ -75,6 +75,7 @@ def test_write_manifest_merges_header_and_core_blocks(tmp_path: Path):
         frame_rate=60.0,
         screen_diag=_FakeScreenDiag(),
         win_res=[1920, 1080],
+        poll_interval_s=0.05,
     )
     m = json.loads((tmp_path / "manifest.json").read_text())
 
@@ -85,6 +86,7 @@ def test_write_manifest_merges_header_and_core_blocks(tmp_path: Path):
     assert m["n_trials"] == 2
     assert m["sequences"][1]["target_temp"] == 48.0
     assert m["sequences"][0]["time_before_s"] == 5.0
+    assert m["poll_interval_s"] == 0.05
     assert "heat_task_version" in m
 
     # study params
