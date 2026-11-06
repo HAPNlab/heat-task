@@ -3,8 +3,7 @@
 import pytest
 
 from heat_task import config
-from heat_task.task.display import rating_to_x
-from heat_task.task.rating import snap_rating
+from heat_task.task.rating_scale import rating_to_x, snap_rating
 
 
 def test_ticks_span_the_track():

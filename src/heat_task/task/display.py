@@ -8,6 +8,7 @@ from psychopy import visual
 from psychopy.hardware.mouse import Mouse
 
 from heat_task import config
+from heat_task.task.rating_scale import rating_to_x
 
 
 @dataclass
@@ -30,14 +31,6 @@ class Stimuli:
     instruction_text: visual.TextStim
     instruction_footer: visual.TextStim
     end: visual.TextStim
-
-
-def rating_to_x(value: int) -> float:
-    """Return the slider x of an integer rating (where its tick and marker sit)."""
-    span = config.RATING_MAX - config.RATING_MIN
-    return -config.SLIDER_HALF_W + (value - config.RATING_MIN) / span * (
-        2 * config.SLIDER_HALF_W
-    )
 
 
 def build_stimuli(win: visual.Window) -> Stimuli:
