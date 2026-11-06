@@ -23,15 +23,13 @@ ramp-down → baseline) from the measured curve. A vendored Medoc MMS external-c
 ## Quick Start
 
 UV is used for development; Anaconda is the production environment. Both install from the same
-`pyproject.toml` — see the [Development Guide](docs/development.md) for details. PsychoPy needs
-`psychtoolbox`, which has no arm64 PyPI wheel — install it manually from the lab build (see the
-[Development Guide](docs/development.md)).
+`pyproject.toml` — see the [Development Guide](docs/development.md) for details.
 
 **UV (development):**
 
 ```bash
 uv venv
-uv sync --inexact
+uv sync
 uv run heat-task
 ```
 
