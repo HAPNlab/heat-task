@@ -13,26 +13,51 @@ This guide covers setting up and developing `heat-task`.
 
 ### psychtoolbox
 
-`psychtoolbox` is **not** declared in `pyproject.toml`: PyPI has no arm64 wheel for it. On Apple
-Silicon, install it manually from the lab build. On Windows the lab build is needed similarly;
-otherwise PsychoPy's own transitive `psychtoolbox` (`<3.0.20`, non-arm64) applies.
+`psychtoolbox` is declared in `pyproject.toml` and installs from PyPI on every platform, so both UV
+and conda get it with no manual step. Version 3.0.22 is the first with an Apple Silicon wheel
+(`universal2`), and PsychoPy 2026.2 is the first that allows it, so the two floors in
+`pyproject.toml` need to stay together.
 
-Below, `<path/to/psychtoolbox.whl>` stands for wherever your copy of the lab wheel lives. Pick the
-wheel matching the environment: `cp311` (Python 3.11) and the platform tag — e.g.
-`macosx_…_universal2` on macOS, `win_amd64` on Windows.
+If `psychtoolbox` fails to import, `psyexp-core` falls back to the weaker `event` keyboard backend
+and only prints a warning at startup, so check for that warning after changing dependencies.
 
-#### Installing the lab wheel with UV
+#### macOS: grant Input Monitoring
+
+On macOS the `ptb` keyboard needs the **Input Monitoring** permission, under System Settings →
+Privacy & Security. Grant it to the app that launches Python (Terminal, PyCharm, etc.), then restart
+that app. Windows doesn't need this.
+
+**Without it the task hangs instead of falling back.** It prints a block of `PsychHID-ERROR` lines
+when the keyboard is created, then spins at 100% CPU and ignores Ctrl-C. Stop it with
+`pkill -f heat-task`.
+
+To check, run this from the app you'll launch the task from. It should print a device count:
 
 ```bash
-uv pip install <path/to/psychtoolbox.whl>
+uv run python -c "from psychtoolbox import PsychHID; print(PsychHID('NumDevices'))"
 ```
 
-Because `uv sync` is exact by default it removes the manual install — run it as `uv sync --inexact`
-to keep psychtoolbox. (`uv run`'s implicit sync is *inexact*, so it leaves the manual install alone;
-pass `--no-sync` only when you are also overlaying an editable `psyexp-core`, which *is* in the lock
-and would otherwise be reverted.)
+If it hangs, stop it with `pkill -f NumDevices`.
 
-#### Installing the lab wheel with conda
+#### Backup: the lab wheel
+
+Use this only if the PyPI wheel doesn't work on a machine. Below, `<path/to/psychtoolbox.whl>` stands
+for wherever your copy of the lab wheel lives. Pick the wheel matching the environment: `cp311`
+(Python 3.11) and the platform tag — e.g. `macosx_…_universal2` on macOS, `win_amd64` on Windows.
+
+##### Installing the lab wheel with UV
+
+```bash
+export UV_NO_SYNC=1                 # for this shell; required so the wheel sticks
+uv pip install <path/to/psychtoolbox.whl>
+uv run heat-task
+```
+
+`psychtoolbox` is in the lock, so any sync replaces the manual install with the locked version. That
+includes `uv sync --inexact` and the implicit sync in a plain `uv run`, so keep `UV_NO_SYNC=1` set or
+pass `--no-sync` on every `uv run`.
+
+##### Installing the lab wheel with conda
 
 Activate the env, then install the wheel with pip:
 
@@ -41,8 +66,8 @@ conda activate heat-task
 pip install --force-reinstall --no-deps <path/to/psychtoolbox.whl>
 ```
 
-The conda env resolves PsychoPy fresh from PyPI, and current PsychoPy already pulls `psychtoolbox`
-from PyPI. If that has the same version number as the lab build, a plain `pip install` skips the
+The conda env already has `psychtoolbox` from PyPI. If that has the same version number as the lab
+build, a plain `pip install` skips the
 wheel as "already installed" — `--force-reinstall` replaces it, and `--no-deps` leaves numpy etc.
 alone. Conda never syncs the env, so the manual install stays put; only re-running
 `pip install -e .` or `conda env update` may swap it back.
@@ -56,7 +81,7 @@ from the same `pyproject.toml`.
 
 ```bash
 uv venv
-uv sync --inexact
+uv sync
 uv run heat-task
 ```
 
@@ -81,14 +106,13 @@ pip install -e ".[dev]"
 
 `pyproject.toml` is the shared, standard manifest. The UV-specific pieces (`[tool.uv.*]`, `uv.lock`)
 are ignored by pip/conda, so the conda install resolves dependencies fresh from PyPI rather than
-from the lockfile. That currently brings in `psychtoolbox` from PyPI; to use the lab build
-instead, see [Installing the lab wheel with conda](#installing-the-lab-wheel-with-conda).
+from the lockfile. A fresh conda env can therefore get newer versions than `uv.lock` pins, within the
+floors in `pyproject.toml`.
 
-> **Heads up — `uv run` auto-syncs the venv from `uv.lock` on every launch** (inexactly: it won't
-> remove your manually-installed psychtoolbox, but it *will* revert a local editable `psyexp-core`
-> back to the locked PyPI version, since the core is in the lock). While co-developing the core,
-> skip that sync with `UV_NO_SYNC=1` — `export` it in your shell, prefix commands with
-> `uv run --no-sync …`, or use the `just core-*` recipes.
+> **Heads up — `uv run` auto-syncs the venv from `uv.lock` on every launch**, which reverts a local
+> editable `psyexp-core` or a manual lab `psychtoolbox` wheel to the locked PyPI version, since both
+> are in the lock. While using either overlay, skip that sync with `UV_NO_SYNC=1` — `export` it in
+> your shell, prefix commands with `uv run --no-sync …`, or use the `just core-*` recipes.
 
 ## Co-developing `psyexp-core` locally
 
@@ -108,10 +132,9 @@ uv run heat-task                    # uses your local core, edits are live
 
 The `just core-dev` / `just core-run` / `just core-test` recipes wrap this — they overlay the
 editable checkout and run with `--no-sync`. Note `uv sync --inexact` does **not** preserve the
-editable core: `--inexact` only spares packages absent from the lock (that's what keeps
-psychtoolbox), and the core *is* in the lock, so only skipping the sync keeps it. After changing
-*other* dependencies you'll need a manual `uv sync --inexact` — that reverts psyexp-core, so re-run
-the editable install (or `just core-dev`) afterward.
+editable core: `--inexact` only spares packages absent from the lock, and the core *is* in the lock,
+so only skipping the sync keeps it. After changing *other* dependencies you'll need a manual
+`uv sync` — that reverts psyexp-core, so re-run the editable install (or `just core-dev`) afterward.
 
 For a setup that survives sync, declare the path source in `pyproject.toml`
 (`[tool.uv.sources] psyexp-core = { path = "../psyexp-core", editable = true }`) and keep that edit
@@ -125,7 +148,7 @@ published version is ignored until the lock is regenerated. To upgrade:
 
 ```bash
 uv lock --upgrade-package psyexp-core   # rewrite uv.lock to the newest version the constraint allows
-uv sync --inexact                       # apply it; --inexact keeps the manual psychtoolbox install
+uv sync                                 # apply it
 ```
 
 (`just core-upgrade` runs both commands.) Then commit the updated `uv.lock`. Raise the `>=` floor in `pyproject.toml` first if you want to
@@ -136,7 +159,7 @@ committed.
 ## Guidelines
 
 - Use UV's own syntax (`uv add`) rather than pip syntax (`uv pip install`) for managing
-  dependencies, except for the manual psychtoolbox/editable-core overlays documented above.
+  dependencies, except for the backup lab wheel and editable-core overlays documented above.
 - This is a small project — don't worry about backwards compatibility. Rename/refactor freely
   without maintaining legacy aliases.
 

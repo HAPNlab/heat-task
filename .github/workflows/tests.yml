@@ -18,8 +18,7 @@ jobs:
       # The medoc + ramp/hold modules the tests exercise are import-clean without
       # it, so the suite imports and runs with just pydantic + psyexp-core. We put
       # `src` on PYTHONPATH rather than resolving the project's full dependency
-      # graph (which would drag in PsychoPy and the unavailable psychtoolbox arm64
-      # wheel).
+      # graph (which would drag in PsychoPy).
       #
       # psyexp-core is installed --no-deps for the same reason: the light modules
       # the tests pull in are import-clean without PsychoPy, so --no-deps avoids
