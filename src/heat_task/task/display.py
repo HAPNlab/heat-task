@@ -22,6 +22,7 @@ class Stimuli:
     ready: visual.TextStim
     rating_prompt: visual.TextStim
     slider_track: visual.Rect
+    slider_ticks: list[visual.Rect]
     slider_marker: visual.Rect
     slider_no_pain: visual.TextStim
     slider_worst_pain: visual.TextStim
@@ -29,6 +30,14 @@ class Stimuli:
     instruction_text: visual.TextStim
     instruction_footer: visual.TextStim
     end: visual.TextStim
+
+
+def rating_to_x(value: int) -> float:
+    """Return the slider x of an integer rating (where its tick and marker sit)."""
+    span = config.RATING_MAX - config.RATING_MIN
+    return -config.SLIDER_HALF_W + (value - config.RATING_MIN) / span * (
+        2 * config.SLIDER_HALF_W
+    )
 
 
 def build_stimuli(win: visual.Window) -> Stimuli:
@@ -81,6 +90,19 @@ def build_stimuli(win: visual.Window) -> Stimuli:
         opacity=0.5,
         autoLog=False,
     )
+    slider_ticks = [
+        visual.Rect(
+            win,
+            width=config.SLIDER_TICK_W,
+            height=config.SLIDER_TICK_H,
+            pos=(rating_to_x(value), config.SLIDER_Y),
+            fillColor=config.TEXT_COLOR,
+            lineColor=None,
+            opacity=0.5,
+            autoLog=False,
+        )
+        for value in range(config.RATING_MIN, config.RATING_MAX + 1)
+    ]
     slider_marker = visual.Rect(
         win,
         width=0.006,
@@ -152,6 +174,7 @@ def build_stimuli(win: visual.Window) -> Stimuli:
         ready=ready,
         rating_prompt=rating_prompt,
         slider_track=slider_track,
+        slider_ticks=slider_ticks,
         slider_marker=slider_marker,
         slider_no_pain=slider_no_pain,
         slider_worst_pain=slider_worst_pain,
@@ -179,6 +202,8 @@ def draw_rating(stimuli: Stimuli, marker_x: float) -> None:
     stimuli.slider_marker.pos = (marker_x, config.SLIDER_Y)
     stimuli.rating_prompt.draw()
     stimuli.slider_track.draw()
+    for tick in stimuli.slider_ticks:
+        tick.draw()
     stimuli.slider_marker.draw()
     stimuli.slider_no_pain.draw()
     stimuli.slider_worst_pain.draw()

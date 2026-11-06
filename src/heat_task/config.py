@@ -119,12 +119,14 @@ PRIMED_MIN_SLOPE_PER_SAMPLE = 0.02
 #   └──┘                 └──┘                    └──┘   ▼ (marker height)
 #    0          track ────┘ ▲                     10
 #  RATING_MIN  (SLIDER_TRACK_H thick)          RATING_MAX
-#                           └ marker snaps to 11 integer stops
+#                           └ marker snaps to 11 integer stops, one tick at each
 #   all centred at y = SLIDER_Y
 
 # Slider geometry (height units; window height = 1.0)
 SLIDER_HALF_W = 0.4  # half the track width (track spans ±SLIDER_HALF_W)
 SLIDER_TRACK_H = 0.006  # track line thickness
+SLIDER_TICK_W = 0.003  # tick thickness (one tick per integer rating)
+SLIDER_TICK_H = 0.03  # tick height
 SLIDER_MARKER_H = 0.10  # marker (handle) height
 SLIDER_Y = 0.0  # vertical centre of the whole slider
 

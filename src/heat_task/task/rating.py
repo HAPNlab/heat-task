@@ -17,10 +17,7 @@ def snap_rating(raw_x: float) -> tuple[int, float]:
     frac = (clamped + config.SLIDER_HALF_W) / (2 * config.SLIDER_HALF_W)
     span = config.RATING_MAX - config.RATING_MIN
     value = config.RATING_MIN + round(frac * span)
-    marker_x = -config.SLIDER_HALF_W + (value - config.RATING_MIN) / span * (
-        2 * config.SLIDER_HALF_W
-    )
-    return value, marker_x
+    return value, display.rating_to_x(value)
 
 
 class RatingController:
