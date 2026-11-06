@@ -8,19 +8,18 @@ version = "1.0.0-rc.6"
 description = "Ramp-and-hold thermal pain task (PsychoPy) driven by a Medoc MMS thermode"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "psychopy>=2025.1",
+    "psychopy>=2026.2",
+    "psychtoolbox>=3.0.22",
     "psyexp-core>=0.9.0",
     "pydantic>=2",
     "rich>=15.0.0",
     "ruff>=0.15.4",
 ]
-# Note: psychtoolbox is NOT declared here. PyPI has no arm64 wheel for it, so on
-# Apple Silicon install it manually from the lab build, e.g.
-#   uv pip install <path/to/psychtoolbox.whl>   (see docs/development.md)
-# Because `uv sync` is exact by default it removes the manual install — run it as
-# `uv sync --inexact` to keep psychtoolbox. (`uv run`'s implicit sync is inexact,
-# so it leaves the manual install alone.) On Windows the lab build is needed
-# similarly; PsychoPy's own transitive psychtoolbox (<3.0.20, non-arm64) otherwise applies.
+# psychtoolbox and psychopy move together. psychtoolbox 3.0.22 is the first release
+# with an arm64 (universal2) wheel; older versions build from source on Apple Silicon
+# and fail to import, which silently drops the keyboard to the weaker `event` backend.
+# psychopy 2026.2 is the first release that doesn't cap psychtoolbox at <3.0.20 on
+# non-arm64 or skip it on arm64. The lab wheel remains a backup: see docs/development.md.
 
 [project.scripts]
 heat-task = "heat_task.__main__:run"
