@@ -156,6 +156,7 @@ heat-task/
 │       │   ├── sequence.py        # run_sequences + SequenceRuntime
 │       │   ├── phases.py          # wait-for-start / end screens + key helpers
 │       │   ├── rating.py          # RatingController slider
+│       │   ├── rating_scale.py    # Rating ↔ slider x mapping (no PsychoPy)
 │       │   ├── phase_tracker.py   # PhaseTracker — infers ramp/hold phase from the stream
 │       │   ├── status.py          # StatusPoller background sampling
 │       │   ├── mms.py             # One-off MMS command helpers
