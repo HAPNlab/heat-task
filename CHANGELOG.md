@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The pain-rating slider now shows a tick mark at each of its 11 integer stops
   (0–10).
+- The cursor is locked inside the task window while it is open, so the
+  participant's trackball can't move it onto another screen or click anything
+  outside the task. `SLIDER_GAIN` in `config.py` sets the slider's speed.
+
+### Changed
+
+- The slider follows the trackball's movement instead of the cursor's
+  position, and stops at each end. Rolling back after pushing past an end now
+  moves the marker straight away.
 
 ## v1.0.0-rc.6
 

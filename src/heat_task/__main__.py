@@ -176,6 +176,9 @@ def run() -> None:
 
     with ExitStack() as stack:
         stack.callback(win.close)
+        # Unlock the cursor before the window goes: pyglet's Windows close does
+        # not clear the cursor clip itself.
+        stack.callback(stimuli_obj.pointer.release)
         stack.callback(logging.flush)
 
         behavior_writer, trace_writer, net_event_writer = recording.make_writers(

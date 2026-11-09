@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from psychopy import visual
-from psychopy.hardware.mouse import Mouse
 
 from heat_task import config
+from heat_task.task.pointer import LockedPointer
 from heat_task.task.rating_scale import rating_to_x
 
 
@@ -27,7 +27,7 @@ class Stimuli:
     slider_marker: visual.Rect
     slider_no_pain: visual.TextStim
     slider_worst_pain: visual.TextStim
-    mouse: Mouse
+    pointer: LockedPointer
     instruction_text: visual.TextStim
     instruction_footer: visual.TextStim
     end: visual.TextStim
@@ -121,7 +121,8 @@ def build_stimuli(win: visual.Window) -> Stimuli:
         color=config.TEXT_COLOR,
         autoLog=False,
     )
-    mouse = Mouse(win=win, visible=False)
+    # Locks the cursor inside the task window from here until teardown.
+    pointer = LockedPointer(win)
 
     instruction_text = visual.TextStim(
         win,
@@ -169,7 +170,7 @@ def build_stimuli(win: visual.Window) -> Stimuli:
         slider_marker=slider_marker,
         slider_no_pain=slider_no_pain,
         slider_worst_pain=slider_worst_pain,
-        mouse=mouse,
+        pointer=pointer,
         instruction_text=instruction_text,
         instruction_footer=instruction_footer,
         end=end,
