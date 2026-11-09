@@ -85,6 +85,21 @@ during cleanup; a clean finish sends `STOP`.
 The pain slider snaps to 11 integer stops (0–10). The participant's last position is recorded
 automatically when the rating window (`RATING_TIMEOUT_S`, 15 s) ends.
 
+### Mouse lock
+
+While the task window is open, the cursor is locked inside it. The trackball can't move the
+cursor onto another screen, and clicks only reach the task window, which ignores them. The
+slider reads the trackball's movement directly; set its speed with `SLIDER_GAIN` in
+`config.py`. On Windows, the pointer-speed setting no longer applies, so tune this on the
+stimulus PC.
+
+- The lock applies to **every** mouse, so the experimenter's mouse is also stuck in the task
+  window during a run. Use the keyboard (`Escape` quits).
+- If another window takes focus (a pop-up, or Alt+Tab), the cursor is free until the task
+  window is active again.
+- The lock starts when the task window opens and ends when it closes. Outside that time the
+  trackball is an ordinary mouse.
+
 ## Output Files
 
 Each run creates a timestamped directory under `data/`:

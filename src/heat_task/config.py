@@ -139,9 +139,14 @@ RATING_TIMEOUT_S = 15.0
 # Pain rating scale: 11 discrete integer positions the marker snaps to.
 RATING_MIN = 0
 RATING_MAX = 10
-# Cursor movement (height units) that counts as the participant interacting with
-# the scale; large enough to ignore setPos/getPos jitter.
+# Trackball movement (height units) that counts as the participant interacting
+# with the scale; large enough to ignore a stray nudge of the ball.
 SLIDER_INTERACT_EPS = 0.004
+# Slider travel per unit of trackball motion. The cursor is locked to the task
+# window and the slider reads raw motion (see task/pointer.py), which on Windows
+# skips the OS pointer-speed setting — tune this on the stimulus PC so one
+# comfortable roll crosses the scale.
+SLIDER_GAIN = 1.0
 
 
 INSTRUCTION_KEYS: dict[str, list[str]] = {
