@@ -38,7 +38,6 @@ from psychopy import logging
 from psyexp_core import rundir, screen
 from psyexp_core.keyboard import build_keyboard, configure_psychopy_backend
 from rich.console import Console
-from rich.panel import Panel
 
 configure_psychopy_backend()
 
@@ -49,19 +48,9 @@ from heat_task.io.setup_wizard import run_wizard
 from heat_task.task import display, instructions, mms
 from heat_task.task.console import SequenceLiveView
 from heat_task.task.framerate import resolve_frame_rate
-from heat_task.task.phases import run_end_screen, wait_for_start
+from heat_task.task.phases import run_end_screen, run_pretest, wait_for_start
 from heat_task.task.sequence import SequenceRuntime, run_sequences
 from heat_task.task.status import StatusPoller
-
-
-def _halt_mms(host: str, port: int, command: str, rcon: Console) -> None:
-    """Send a stop/abort to the MMS during teardown, swallowing any failure so
-    the rest of cleanup always runs even if the thermode is unreachable or the
-    test has already ended."""
-    try:
-        mms.send_command(host, port, command)
-    except Exception as exc:  # noqa: BLE001 — best-effort shutdown, never re-raise
-        rcon.print(f"[yellow]MMS {command} failed during shutdown: {exc}[/yellow]")
 
 
 def run() -> None:
@@ -131,22 +120,13 @@ def run() -> None:
     if session_info.show_instructions:
         instructions.display_instructions(win, stimuli_obj, kb)
 
-    # ── START THE RUN ─────────────────────────────────────────────────────────
-    # Block on the start key, then fire START so PsychoPy and the MMS begin together.
-    start_key = config.START_KEYS[0]
-    rcon.print(
-        Panel(
-            f"[bold]1.[/bold] In MMS, click [bold]Pre-test[/bold] "
-            "— [bold red]do NOT click Start[/bold red]\n"
-            f"[bold]2.[/bold] Press [bold]{start_key}[/bold] in the PsychoPy window when ready\n"
-            f"[dim]PsychoPy sends START automatically on [/dim][bold]{start_key}[/bold]"
-            "[dim], so both systems begin at the same time.[/dim]",
-            title="[bold green]Start the Run[/bold green]",
-            border_style="green",
-            expand=False,
-            padding=(1, 2),
-        )
-    )
+    # ── PRETEST & START ───────────────────────────────────────────────────────
+    # The operator's mouse is locked to the task window, so PsychoPy sends both
+    # MMS STARTs: the first runs the pretest, the second starts the run. Each
+    # waits for its own key, and the run START only once the pretest is done.
+    mms.print_pretest_prompt(rcon)
+    run_pretest(win, stimuli_obj, kb, session_info.host, session_info.port, rcon)
+    mms.print_start_prompt(rcon)
     wait_for_start(win, stimuli_obj, kb)
 
     start_response = mms.send_command(session_info.host, session_info.port, "start")
@@ -168,10 +148,10 @@ def run() -> None:
     def _halt_mms_on_exit(exc_type, exc, tb):
         if exc_type is None:
             logging.exp("Run ended normally: operator dismissed end screen")
-            _halt_mms(session_info.host, session_info.port, "stop", rcon)
+            mms.halt(session_info.host, session_info.port, "stop", rcon)
         else:
             logging.warning(f"Run aborted: {exc_type.__name__}")
-            _halt_mms(session_info.host, session_info.port, "abort", rcon)
+            mms.halt(session_info.host, session_info.port, "abort", rcon)
         return False  # never suppress the exception
 
     with ExitStack() as stack:

@@ -60,8 +60,8 @@ Do **not** drop the pre-release suffix until all of the following hold.
    ```
 2. **End-to-end run against MMS.** Run a full session against the thermode (or a Medoc MMS test
    bench) and confirm:
-   - The program selects, pretest is accepted, and `START` begins PsychoPy and the thermode
-     together.
+   - The program selects, `P` runs the pretest and the terminal reports it done, and `0`
+     (`START`) begins PsychoPy and the thermode together.
    - Each sequence's ramp-up, hold, and ramp-down are detected and the **READY** cue and rating
      slider appear at the right phases.
    - Quitting (Escape / Ctrl-C) and a clean finish both leave the thermode stopped (`ABORT` /
