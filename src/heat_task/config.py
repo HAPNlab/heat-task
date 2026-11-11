@@ -25,13 +25,11 @@ START_CONFIRM_TIMEOUT_S = 3.0
 START_CONFIRM_POLL_S = 0.25
 # The task sends the pretest START itself (the operator's mouse is locked to the
 # task window, so they can't click Pre-test in MMS), then polls STATUS every
-# PRETEST_POLL_S until the pretest is done. A test state of IDLE/READY only
-# counts after PRETEST_MIN_WAIT_S, so a poll that lands before MMS has started
-# the pretest can't end the wait early (the medoc CLI waits 1 s the same way).
-# Past PRETEST_TIMEOUT_S the task ABORTs and stops.
-PRETEST_POLL_S = 0.5
-PRETEST_MIN_WAIT_S = 1.0
-PRETEST_TIMEOUT_S = 120.0
+# PRETEST_POLL_S. The pretest is done on the first poll where MMS reports the
+# test RUNNING with the thermode within BASELINE_TOLERANCE of the run's first
+# baseline. Past PRETEST_TIMEOUT_S the task ABORTs and stops.
+PRETEST_POLL_S = 0.1
+PRETEST_TIMEOUT_S = 20.0
 # Shorter receive timeout for the status poller's long-lived socket. A status
 # query returns in milliseconds on a healthy link, so a stall past this bounds
 # the freeze before we drop and reconnect to resynchronise the stream.

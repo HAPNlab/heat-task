@@ -121,6 +121,7 @@ def send_pretest(host: str, port: int, rcon: Console) -> None:
 def wait_for_pretest(
     host: str,
     port: int,
+    baseline: float,
     *,
     on_tick: Callable[[], None],
     on_progress: Callable[[float], None],
@@ -128,14 +129,17 @@ def wait_for_pretest(
 ) -> float:
     """Poll STATUS until the pretest is done; return how long it took.
 
-    Done means a test state of IDLE or READY at least PRETEST_MIN_WAIT_S after
-    the pretest was sent. *on_tick* runs every loop (draw a frame, check the
-    quit key) and *on_progress* gets the elapsed seconds after each poll.
-    Raises PretestTimeout after PRETEST_TIMEOUT_S; the caller sends the ABORT.
+    During the pretest MMS reports the test as RUNNING and brings the thermode
+    to the program's baseline, then holds it there until the run START. So the
+    pretest is done on the first poll that shows RUNNING with the temperature
+    within BASELINE_TOLERANCE of *baseline*. *on_tick* runs every loop (draw a
+    frame, check the quit key) and *on_progress* gets the elapsed seconds after
+    each poll. Raises PretestTimeout after PRETEST_TIMEOUT_S; the caller sends
+    the ABORT.
     """
     started = clock()
     last_poll = None
-    state = None
+    status = None
     while True:
         on_tick()
         now = clock()
@@ -146,24 +150,27 @@ def wait_for_pretest(
                 status = send_command(host, port, "status")
             except OSError:
                 status = None  # one dropped poll; keep trying until the timeout
-            state = None if status is None else status.test_state
-            if elapsed >= config.PRETEST_MIN_WAIT_S and state in (
-                TestState.IDLE,
-                TestState.READY,
+            if (
+                status is not None
+                and status.test_state == TestState.RUNNING
+                and abs(status.temperature - baseline) <= config.BASELINE_TOLERANCE
             ):
                 return elapsed
             on_progress(elapsed)
         if elapsed >= config.PRETEST_TIMEOUT_S:
+            last = (
+                "no reply"
+                if status is None
+                else f"test state {_state_name(status.test_state)}, {status.temperature:.2f} °C"
+            )
             raise PretestTimeout(
-                f"Pretest did not finish within {config.PRETEST_TIMEOUT_S:.0f} s "
-                f"(MMS test state: {_state_name(state)}).\n\n"
+                f"Pretest did not reach the {baseline:g} °C baseline within "
+                f"{config.PRETEST_TIMEOUT_S:.0f} s (MMS: {last}).\n\n"
                 "Check MMS. PsychoPy sent ABORT."
             )
 
 
-def _state_name(state: int | None) -> str:
-    if state is None:
-        return "no reply"
+def _state_name(state: int) -> str:
     try:
         return TestState(state).name
     except ValueError:

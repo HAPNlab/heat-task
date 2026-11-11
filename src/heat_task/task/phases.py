@@ -18,10 +18,11 @@ def run_pretest(
     kb: keyboard.Keyboard | None,
     host: str,
     port: int,
+    baseline: float,
     rcon: Console,
 ) -> None:
     """Send the MMS pretest when the operator presses the pretest key, and
-    return once MMS reports it done.
+    return once MMS has the thermode at *baseline* (°C).
 
     The crosshair stays onscreen throughout. The start key is ignored (with a
     note on the terminal) until the pretest has been sent. If the pretest fails
@@ -58,6 +59,7 @@ def run_pretest(
             elapsed = mms.wait_for_pretest(
                 host,
                 port,
+                baseline,
                 on_tick=tick,
                 on_progress=lambda s: status.update(f"Pretest running... {s:.0f} s"),
             )
@@ -70,9 +72,9 @@ def run_pretest(
         display.draw_crosshair(stimuli)
         win.flip()
         wait_for_key(kb, [], quit_keys=config.QUIT_KEYS)
-        return  # unreachable: the quit key ends the session
-    logging.exp(f"MMS pretest done in {elapsed:.1f} s")
-    rcon.print(f"[green]Pretest done in {elapsed:.0f} s. MMS is ready.[/green]")
+    else:
+        logging.exp(f"MMS pretest done in {elapsed:.1f} s")
+        rcon.print(f"[green]Pretest done in {elapsed:.0f} s. MMS is ready.[/green]")
 
 
 def wait_for_start(
