@@ -5,6 +5,7 @@ setup/select steps run() walks through before the task begins."""
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from psychopy import core, gui, logging
@@ -76,6 +77,140 @@ def confirm_started(host: str, port: int, rcon: Console, response: MedocResponse
         time.sleep(config.START_CONFIRM_POLL_S)
 
 
+def halt(host: str, port: int, command: str, rcon: Console) -> None:
+    """Send a stop/abort to the MMS, swallowing any failure so the caller's
+    cleanup always continues even if the thermode is unreachable or the test
+    has already ended."""
+    try:
+        send_command(host, port, command)
+    except Exception as exc:  # noqa: BLE001 — best-effort shutdown, never re-raise
+        rcon.print(f"[yellow]MMS {command} failed during shutdown: {exc}[/yellow]")
+
+
+class PretestError(RuntimeError):
+    """The pretest did not complete; the message is shown to the operator."""
+
+
+class PretestTimeout(PretestError):
+    """The pretest started but did not finish in time, so MMS needs an ABORT."""
+
+
+def send_pretest(host: str, port: int, rcon: Console) -> None:
+    """Send the first START, which MMS runs as the pretest.
+
+    A reply with an error code raises PretestError. No reply is tolerated, as
+    for the run START: MMS can answer late, and wait_for_pretest watches STATUS
+    to see the pretest through either way.
+    """
+    try:
+        response = send_command(host, port, "start")
+    except OSError as exc:
+        raise PretestError(f"Could not reach MMS at {host}:{port}: {exc}") from exc
+    if response is None:
+        rcon.print("[yellow]MMS gave no reply to the pretest; watching its status[/yellow]")
+        return
+    if response.return_code != ReturnCode.OK:
+        name = ReturnCode.describe(response.return_code)
+        raise PretestError(
+            f"MMS rejected the pretest: {name} (code {response.return_code})\n\n"
+            "Check the MMS Safety indicator. Safe Mode needs a Self-Test."
+        )
+    rcon.print("[green]MMS pretest sent ok[/green]")
+
+
+def wait_for_pretest(
+    host: str,
+    port: int,
+    *,
+    on_tick: Callable[[], None],
+    on_progress: Callable[[float], None],
+    clock: Callable[[], float] = time.monotonic,
+) -> float:
+    """Poll STATUS until the pretest is done; return how long it took.
+
+    Done means a test state of IDLE or READY at least PRETEST_MIN_WAIT_S after
+    the pretest was sent. *on_tick* runs every loop (draw a frame, check the
+    quit key) and *on_progress* gets the elapsed seconds after each poll.
+    Raises PretestTimeout after PRETEST_TIMEOUT_S; the caller sends the ABORT.
+    """
+    started = clock()
+    last_poll = None
+    state = None
+    while True:
+        on_tick()
+        now = clock()
+        elapsed = now - started
+        if last_poll is None or now - last_poll >= config.PRETEST_POLL_S:
+            last_poll = now
+            try:
+                status = send_command(host, port, "status")
+            except OSError:
+                status = None  # one dropped poll; keep trying until the timeout
+            state = None if status is None else status.test_state
+            if elapsed >= config.PRETEST_MIN_WAIT_S and state in (
+                TestState.IDLE,
+                TestState.READY,
+            ):
+                return elapsed
+            on_progress(elapsed)
+        if elapsed >= config.PRETEST_TIMEOUT_S:
+            raise PretestTimeout(
+                f"Pretest did not finish within {config.PRETEST_TIMEOUT_S:.0f} s "
+                f"(MMS test state: {_state_name(state)}).\n\n"
+                "Check MMS. PsychoPy sent ABORT."
+            )
+
+
+def _state_name(state: int | None) -> str:
+    if state is None:
+        return "no reply"
+    try:
+        return TestState(state).name
+    except ValueError:
+        return f"UNKNOWN({state})"
+
+
+def print_pretest_prompt(rcon: Console) -> None:
+    key = config.PRETEST_KEYS[0].upper()
+    rcon.print(
+        Panel(
+            f"Press [bold]{key}[/bold] in the PsychoPy window to start the pretest.\n"
+            "MMS brings the thermode to baseline. The terminal shows when it is done.",
+            title="[bold cyan]Step 1 of 2: Pretest[/bold cyan]",
+            border_style="cyan",
+            expand=False,
+            padding=(1, 2),
+        )
+    )
+
+
+def print_start_prompt(rcon: Console) -> None:
+    key = config.START_KEYS[0]
+    rcon.print(
+        Panel(
+            f"Press [bold]{key}[/bold] in the PsychoPy window to start the run.\n"
+            "The run starts as soon as you press it.",
+            title="[bold green]Step 2 of 2: Start the Run[/bold green]",
+            border_style="green",
+            expand=False,
+            padding=(1, 2),
+        )
+    )
+
+
+def print_pretest_failed(rcon: Console, exc: PretestError) -> None:
+    title = "Pretest Timed Out" if isinstance(exc, PretestTimeout) else "Pretest Failed"
+    rcon.print(
+        Panel(
+            f"{exc}\nThe run has not started. Press [bold]Escape[/bold] to quit.",
+            title=f"[bold red]{title}[/bold red]",
+            border_style="red",
+            expand=False,
+            padding=(1, 2),
+        )
+    )
+
+
 def prompt_setup(rcon: Console) -> None:
     """Walk the operator through arming the MMS, then block until they confirm."""
     rcon.print(
@@ -83,7 +218,9 @@ def prompt_setup(rcon: Console) -> None:
             "[bold]1.[/bold] In MMS, click [bold]Go to Test[/bold]\n"
             "[bold]2.[/bold] Confirm the status reads "
             "[italic]'External Control: TSA 2 is waiting for Test Program'[/italic]\n"
-            "[bold]3.[/bold] Press [bold]Enter[/bold] here to continue",
+            "[bold]3.[/bold] Press [bold]Enter[/bold] here to continue\n\n"
+            "After this, don't click anything in MMS. PsychoPy sends Pre-test and Start\n"
+            "for you, and the mouse is locked to the task window once it opens.",
             title="[bold yellow]MMS Setup[/bold yellow]",
             border_style="yellow",
             expand=False,

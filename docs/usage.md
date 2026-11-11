@@ -63,20 +63,30 @@ remembered between runs (persisted to `data/.last_connection.json`).
 
 The task walks you through the MMS sequence on the terminal:
 
-1. Before the window opens, the wizard prompts you to confirm the MMS is ready.
+1. Before the window opens, the wizard prompts you to click **Go to Test** in MMS and confirm it
+   is waiting for a test program. After this you don't click anything in MMS: the mouse is locked
+   to the task window once it opens (see [Mouse lock](#mouse-lock)), so the task sends both
+   `START`s for you.
 2. The task **selects the program** in MMS (from `program_word` in the run file).
 3. Instructions are shown (if enabled), then a crosshair waits on screen.
-4. In MMS, click **Pre-test** — **do _not_ click Start**.
-5. Press the start key (`0`) in the PsychoPy window. The task sends `START` to MMS automatically, so
+4. **Step 1 of 2, pretest:** press `P` in the PsychoPy window. The task sends the first `START`,
+   which MMS runs as the pretest, and the terminal counts the seconds until MMS reports it done.
+   The start key is ignored until then.
+5. **Step 2 of 2, start:** press the start key (`0`). The task sends the second `START`, so
    PsychoPy and the thermode begin together.
 
+If MMS rejects the pretest, or it doesn't finish within `PRETEST_TIMEOUT_S` (120 s, after which
+the task sends `ABORT`), the terminal says why and the run doesn't start; press Escape to quit.
+Fixing MMS (e.g. a Self-Test after Safe Mode) needs the mouse, so quit first.
+
 If the run is interrupted (quit key, Ctrl-C, or an error), the task sends `ABORT` to the thermode
-during cleanup; a clean finish sends `STOP`.
+during cleanup; a clean finish sends `STOP`. Quitting during the pretest also sends `ABORT`.
 
 ## Keyboard Controls
 
 | Key | Action |
 |-----|--------|
+| `P` | Send the MMS pretest |
 | `0` (or numpad `0`) | Start the run / dismiss the end screen |
 | `1` (or numpad `1`) | Advance instructions |
 | Trackball | Move the pain-rating slider during ramp-down |

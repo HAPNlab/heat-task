@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The cursor is locked inside the task window while it is open, so the
   participant's trackball can't move it onto another screen or click anything
   outside the task. `SLIDER_GAIN` in `config.py` sets the slider's speed.
+- The task sends the MMS pretest itself, since the locked mouse can't click
+  Pre-test in MMS. The operator presses `P` for the pretest, the terminal shows
+  when MMS reports it done, and only then does `0` start the run. A rejected
+  pretest, or one that runs past `PRETEST_TIMEOUT_S` (120 s, then `ABORT`),
+  stops the task before the run starts.
 
 ### Changed
 
