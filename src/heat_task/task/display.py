@@ -78,9 +78,8 @@ def build_stimuli(win: visual.Window) -> Stimuli:
         width=config.SLIDER_HALF_W * 2,
         height=config.SLIDER_TRACK_H,
         pos=(0, config.SLIDER_Y),
-        fillColor=config.TEXT_COLOR,
+        fillColor=config.SLIDER_SCALE_COLOR,
         lineColor=None,
-        opacity=0.5,
         autoLog=False,
     )
     slider_ticks = [
@@ -89,9 +88,8 @@ def build_stimuli(win: visual.Window) -> Stimuli:
             width=config.SLIDER_TICK_W,
             height=config.SLIDER_TICK_H,
             pos=(rating_to_x(value), config.SLIDER_Y),
-            fillColor=config.TEXT_COLOR,
+            fillColor=config.SLIDER_SCALE_COLOR,
             lineColor=None,
-            opacity=0.5,
             autoLog=False,
         )
         for value in range(config.RATING_MIN, config.RATING_MAX + 1)

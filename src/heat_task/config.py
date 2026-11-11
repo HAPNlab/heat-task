@@ -129,6 +129,9 @@ SLIDER_TICK_W = 0.003  # tick thickness (one tick per integer rating)
 SLIDER_TICK_H = 0.03  # tick height
 SLIDER_MARKER_H = 0.10  # marker (handle) height
 SLIDER_Y = 0.0  # vertical centre of the whole slider
+# Track and tick colour (PsychoPy rgb, -1..1): an opaque mid-gray, so ticks
+# don't stack brighter where they cross the track the way translucent white did.
+SLIDER_SCALE_COLOR = (0.0, 0.0, 0.0)
 
 # Max time the participant has to enter a rating before the sequence moves on.
 RATING_TIMEOUT_S = 15.0
