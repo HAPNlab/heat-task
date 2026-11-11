@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The pain-rating slider now shows a tick mark at each of its 11 integer stops
   (0–10).
 
+### Changed
+
+- The setup wizard's **Run file** prompt is now an arrow-key list of the
+  `conditions/*.toml` files instead of a typed file name. The highlighted file
+  shows its sequence count, target temperatures and program word; a file that
+  fails to load is greyed out with the reason, so it can't be picked and crash
+  the task later. The cursor starts on the run file used last.
+
 ## v1.0.0-rc.6
 
 ### Added

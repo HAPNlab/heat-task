@@ -47,15 +47,15 @@ Options:
 
 ## Setup Wizard
 
-On launch a terminal wizard collects the session parameters. The MMS host/port and screen are
-remembered between runs (persisted to `data/.last_connection.json`).
+On launch a terminal wizard collects the session parameters. The MMS host/port, screen and run
+file are remembered between runs (persisted to `data/.last_connection.json`).
 
 | Prompt | Description | Default |
 |--------|-------------|---------|
 | **Subject ID** | Participant identifier; used in output filenames | `XXX000` |
 | **MMS host/IP** | Address of the Medoc Main Station | last used, else `192.168.1.100` |
 | **MMS port** | MMS external-control TCP port | last used, else `20121` |
-| **Run file** | A `*.toml` file in `conditions/` | `example.toml` |
+| **Run file** | Pick a `*.toml` file in `conditions/` with the arrow keys. The highlighted file's sequence count, target temperatures and program word show below the list; a file that fails to load is greyed out with the reason | last used, else the first file |
 | **Screen** | Display index for the PsychoPy window | last used |
 | **Show instructions?** | Show the instruction pages before the run | yes |
 

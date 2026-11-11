@@ -12,6 +12,7 @@ dependencies = [
     "psychtoolbox>=3.0.22",
     "psyexp-core>=0.9.0",
     "pydantic>=2",
+    "questionary>=2.0",
     "rich>=15.0.0",
     "ruff>=0.15.4",
 ]
