@@ -20,7 +20,12 @@ READY = int(MedocTestState.READY)
 IDLE = int(MedocTestState.IDLE)
 
 
-def _response(*, test_state: int = RUNNING, return_code: int = 0) -> MedocResponse:
+BASELINE = 32.0
+
+
+def _response(
+    *, test_state: int = RUNNING, return_code: int = 0, temp: float = BASELINE
+) -> MedocResponse:
     return MedocResponse(
         response_length=23,
         timestamp=1000,
@@ -29,7 +34,7 @@ def _response(*, test_state: int = RUNNING, return_code: int = 0) -> MedocRespon
         test_state=test_state,
         return_code=return_code,
         test_time=100,
-        raw_temperature=3200,
+        raw_temperature=round(temp * 100),
         covas=0,
         yes=0,
         no=0,
@@ -44,7 +49,7 @@ def _console() -> Console:
 @pytest.fixture(autouse=True)
 def _pretest_timing(monkeypatch):
     monkeypatch.setattr(config, "PRETEST_POLL_S", 0.0)
-    monkeypatch.setattr(config, "PRETEST_MIN_WAIT_S", 1.0)
+    monkeypatch.setattr(config, "BASELINE_TOLERANCE", 0.4)
     monkeypatch.setattr(config, "PRETEST_TIMEOUT_S", 5.0)
 
 
@@ -62,17 +67,20 @@ class _FakeClock:
         self.now += self.step
 
 
-def _poll_states(monkeypatch, states):
-    """Make each STATUS poll answer with the next state (None = no reply,
-    OSError = connection failure); the last one repeats."""
-    seq = list(states)
+def _poll_states(monkeypatch, replies):
+    """Make each STATUS poll answer with the next reply: a (state, temp) pair,
+    None for no reply, or OSError for a connection failure. The last repeats."""
+    seq = list(replies)
 
     def fake_send(host, port, method, *args):
         assert method == "status"
-        state = seq.pop(0) if len(seq) > 1 else seq[0]
-        if state is OSError:
+        reply = seq.pop(0) if len(seq) > 1 else seq[0]
+        if reply is OSError:
             raise OSError("connection refused")
-        return None if state is None else _response(test_state=state)
+        if reply is None:
+            return None
+        state, temp = reply
+        return _response(test_state=state, temp=temp)
 
     monkeypatch.setattr(mms, "send_command", fake_send)
 
@@ -81,6 +89,7 @@ def _wait(clock, progress=None):
     return mms.wait_for_pretest(
         "h",
         1,
+        BASELINE,
         on_tick=clock.tick,
         on_progress=(progress.append if progress is not None else lambda s: None),
         clock=clock,
@@ -122,31 +131,35 @@ def test_send_pretest_unreachable_raises(monkeypatch):
 # ── wait_for_pretest ──────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("done_state", [READY, IDLE])
-def test_returns_when_pretest_settles(monkeypatch, done_state):
-    _poll_states(monkeypatch, [RUNNING, RUNNING, RUNNING, done_state])
+def test_done_on_first_poll_when_already_at_baseline(monkeypatch):
+    _poll_states(monkeypatch, [(RUNNING, BASELINE)])
     progress = []
-    elapsed = _wait(_FakeClock(step=0.5), progress)
-    assert elapsed == pytest.approx(2.0)
-    assert progress == pytest.approx([0.5, 1.0, 1.5])
+    assert _wait(_FakeClock(step=0.5), progress) == pytest.approx(0.5)
+    assert progress == []
 
 
-def test_ready_before_min_wait_does_not_count(monkeypatch):
-    # A poll that lands before MMS has started the pretest still reads READY.
-    _poll_states(monkeypatch, [READY, READY, RUNNING, READY])
-    elapsed = _wait(_FakeClock(step=0.4))
-    assert elapsed == pytest.approx(1.6)
+def test_waits_for_the_thermode_to_reach_baseline(monkeypatch):
+    _poll_states(monkeypatch, [(RUNNING, 30.0), (RUNNING, 31.0), (RUNNING, 31.7)])
+    progress = []
+    assert _wait(_FakeClock(step=0.5), progress) == pytest.approx(1.5)
+    assert progress == pytest.approx([0.5, 1.0])
+
+
+@pytest.mark.parametrize("state", [READY, IDLE])
+def test_not_done_until_running(monkeypatch, state):
+    # At baseline before MMS has started the pretest doesn't count.
+    _poll_states(monkeypatch, [(state, BASELINE), (RUNNING, BASELINE)])
+    assert _wait(_FakeClock(step=0.5)) == pytest.approx(1.0)
 
 
 def test_dropped_polls_keep_waiting(monkeypatch):
-    _poll_states(monkeypatch, [None, OSError, RUNNING, READY])
-    elapsed = _wait(_FakeClock(step=0.5))
-    assert elapsed == pytest.approx(2.0)
+    _poll_states(monkeypatch, [None, OSError, (RUNNING, BASELINE)])
+    assert _wait(_FakeClock(step=0.5)) == pytest.approx(1.5)
 
 
-def test_times_out_with_last_state(monkeypatch):
-    _poll_states(monkeypatch, [RUNNING])
-    with pytest.raises(mms.PretestTimeout, match="test state: RUNNING"):
+def test_times_out_with_last_reading(monkeypatch):
+    _poll_states(monkeypatch, [(RUNNING, 30.0)])
+    with pytest.raises(mms.PretestTimeout, match="test state RUNNING, 30.00 °C"):
         _wait(_FakeClock(step=1.0))
 
 

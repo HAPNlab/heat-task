@@ -70,12 +70,13 @@ The task walks you through the MMS sequence on the terminal:
 2. The task **selects the program** in MMS (from `program_word` in the run file).
 3. Instructions are shown (if enabled), then a crosshair waits on screen.
 4. **Step 1 of 2, pretest:** press `P` in the PsychoPy window. The task sends the first `START`,
-   which MMS runs as the pretest, and the terminal counts the seconds until MMS reports it done.
-   The start key is ignored until then.
+   which MMS runs as the pretest. The pretest is done once MMS reports the test running with the
+   thermode at the run file's first baseline, which is immediate if it's already there. The
+   start key is ignored until then.
 5. **Step 2 of 2, start:** press the start key (`0`). The task sends the second `START`, so
    PsychoPy and the thermode begin together.
 
-If MMS rejects the pretest, or it doesn't finish within `PRETEST_TIMEOUT_S` (120 s, after which
+If MMS rejects the pretest, or it doesn't finish within `PRETEST_TIMEOUT_S` (20 s, after which
 the task sends `ABORT`), the terminal says why and the run doesn't start; press Escape to quit.
 Fixing MMS (e.g. a Self-Test after Safe Mode) needs the mouse, so quit first.
 

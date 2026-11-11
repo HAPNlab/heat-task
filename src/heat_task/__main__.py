@@ -125,7 +125,15 @@ def run() -> None:
     # MMS STARTs: the first runs the pretest, the second starts the run. Each
     # waits for its own key, and the run START only once the pretest is done.
     mms.print_pretest_prompt(rcon)
-    run_pretest(win, stimuli_obj, kb, session_info.host, session_info.port, rcon)
+    run_pretest(
+        win,
+        stimuli_obj,
+        kb,
+        session_info.host,
+        session_info.port,
+        run_config.sequences[0].baseline,
+        rcon,
+    )
     mms.print_start_prompt(rcon)
     wait_for_start(win, stimuli_obj, kb)
 
