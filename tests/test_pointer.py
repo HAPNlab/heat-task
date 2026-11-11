@@ -2,7 +2,7 @@
 
 import pytest
 
-from heat_task.task.pointer import LockedPointer
+from heat_task.task.pointer import LockedPointer, cocoa_to_quartz_center
 
 
 class FakeWinHandle:
@@ -64,3 +64,20 @@ def test_release_unlocks_once():
     pointer.release()
     pointer.release()
     assert win.backend.exclusive_calls == [True, False]
+
+
+def test_refocus_handler_lets_the_event_propagate():
+    win = FakeWin()
+    LockedPointer(win)
+    assert win.winHandle.handlers["on_activate"]() is None
+
+
+def test_center_on_secondary_display():
+    # Main display 2560x1440; a 1920x1080 window whose top-left sits 228 pt
+    # below the main display's top, to its right (Cocoa origin is bottom-left).
+    origin_y = 1440 - 228 - 1080
+    assert cocoa_to_quartz_center(2560, origin_y, 1920, 1080, 1440) == (3520, 768)
+
+
+def test_center_on_main_display():
+    assert cocoa_to_quartz_center(0, 0, 1920, 1080, 1080) == (960, 540)
