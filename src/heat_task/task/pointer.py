@@ -13,6 +13,12 @@ instead of PsychoPy's ``Mouse.getPos``. The lock covers every mouse on the
 computer, not only the trackball; pyglet drops it while the window is unfocused
 (e.g. after Alt+Tab) and restores it on refocus.
 
+On macOS the detached cursor stays wherever it was parked, and clicks land
+there. pyglet 1.5 parks it at the window centre, but gets the maths wrong for a
+window on a secondary display, leaving it outside the window, so clicks hit the
+desktop (and "click wallpaper to reveal desktop" fires). We re-park it at the
+true centre after locking and after every refocus.
+
 Kept free of PsychoPy imports so it can be tested on the headless CI job.
 """
 
@@ -39,9 +45,15 @@ class LockedPointer:
         # Pushed handlers run before PsychoPy's own and return None, so the
         # event still propagates. A held button turns motion into a drag, which
         # must count too or the slider would freeze while a button is down.
-        win.winHandle.push_handlers(on_mouse_motion=self._on_motion, on_mouse_drag=self._on_drag)
+        win.winHandle.push_handlers(
+            on_mouse_motion=self._on_motion,
+            on_mouse_drag=self._on_drag,
+            # pyglet re-locks on refocus, re-parking the cursor (wrongly) first.
+            on_activate=self._on_activate,
+        )
         win.backend.setMouseExclusive(True)
         self._locked = True
+        self._center_cursor()
 
     def _on_motion(self, x: float, y: float, dx: float, dy: float) -> None:
         self._dx += dx
@@ -50,6 +62,25 @@ class LockedPointer:
         self, x: float, y: float, dx: float, dy: float, buttons: int, modifiers: int
     ) -> None:
         self._dx += dx
+
+    def _on_activate(self) -> None:
+        if self._locked:
+            self._center_cursor()
+
+    def _center_cursor(self) -> None:
+        """macOS only: park the detached cursor at the window's centre."""
+        nswindow = getattr(self._win.winHandle, "_nswindow", None)
+        if nswindow is None:
+            return  # not a Cocoa window; Windows' ClipCursor keeps it inside
+        from pyglet.libs.darwin import cocoapy
+
+        quartz = cocoapy.quartz
+        frame = nswindow.frame()
+        main_h = quartz.CGDisplayBounds(quartz.CGMainDisplayID()).size.height
+        x, y = cocoa_to_quartz_center(
+            frame.origin.x, frame.origin.y, frame.size.width, frame.size.height, main_h
+        )
+        self._win.winHandle.set_mouse_position(x, y, absolute=True)
 
     def take_dx(self) -> float:
         """Return horizontal motion since the last call, in height units."""
@@ -61,3 +92,14 @@ class LockedPointer:
         if self._locked:
             self._locked = False
             self._win.backend.setMouseExclusive(False)
+
+
+def cocoa_to_quartz_center(
+    origin_x: float, origin_y: float, width: float, height: float, main_height: float
+) -> tuple[float, float]:
+    """Centre of a window frame, from Cocoa to Quartz global coordinates.
+
+    Cocoa puts (0, 0) at the main display's bottom-left with y up; Quartz (the
+    cursor warp) puts it at the main display's top-left with y down.
+    """
+    return origin_x + width / 2, main_height - (origin_y + height / 2)
