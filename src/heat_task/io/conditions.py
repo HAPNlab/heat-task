@@ -83,6 +83,39 @@ def conditions_dir() -> Path:
     return _CONDITIONS_DIR
 
 
+def list_run_files() -> list[Path]:
+    """The run files in conditions/, sorted by name (the setup wizard's list order)."""
+    return sorted(_CONDITIONS_DIR.glob("*.toml"))
+
+
+def summarize_run_config(config: RunConfig) -> str:
+    """One-line summary of a run file, shown under it in the setup wizard's list."""
+    count = len(config.sequences)
+    targets = ", ".join(f"{t:g}" for t in sorted({s.target_temp for s in config.sequences}))
+    noun = "sequence" if count == 1 else "sequences"
+    return f"{count} {noun} · targets {targets} °C · program word {config.program_word}"
+
+
+def summarize_load_error(exc: Exception) -> str:
+    """One-line reason load_run_config failed, short enough to show inline in the
+    setup wizard's list (the full pydantic report spans many lines)."""
+    cause = exc.__cause__
+    if isinstance(cause, ValidationError):
+        first = cause.errors()[0]
+        message = first["msg"].removeprefix("Value error, ")
+        # Number [[sequence]] tables from 1, as they read in the file. Skip the
+        # location when the message already names the field it's about.
+        location = " ".join(
+            str(part + 1) if isinstance(part, int) else part for part in first["loc"]
+        )
+        named = bool(first["loc"]) and message.startswith(str(first["loc"][-1]))
+        reason = f"{location}: {message}" if location and not named else message
+        if extra := cause.error_count() - 1:
+            reason += f" (+{extra} more)"
+        return reason
+    return str(exc).splitlines()[0]
+
+
 def resolve_run_file(path_value: str | Path) -> Path:
     path = Path(path_value)
     if path.is_absolute():
