@@ -147,7 +147,7 @@ Onset columns hold a time in seconds, or a placeholder string if the phase was n
 
 One row is written per status poll (~100 Hz), so the trace is the run sampled at the poll rate:
 `sample_n`, `time_s`, `sequence_n`, `baseline_temp`, `target_temp`, `raw_temperature`,
-`rolling_mean_temperature`, `phase`, `phase_change_event`, `device_system_state`,
+`rolling_median_temperature`, `phase`, `phase_change_event`, `device_system_state`,
 `device_test_state`, `device_return_code`, `device_clock_ms`, `poll_latency_ms`.
 
 `device_return_code` is the MMS return code on that status reply (`ok` normally). A

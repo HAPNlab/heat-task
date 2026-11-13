@@ -46,7 +46,7 @@ class TraceSample:
     baseline_temp: float
     target_temp: float
     raw_temperature: float
-    rolling_mean_temperature: float
+    rolling_median_temperature: float
     phase: str
     phase_change_event: str
     device_system_state: str
@@ -91,7 +91,7 @@ TRACE_COLUMNS = [
     "baseline_temp",
     "target_temp",
     "raw_temperature",
-    "rolling_mean_temperature",
+    "rolling_median_temperature",
     "phase",
     "phase_change_event",
     "device_system_state",
@@ -193,10 +193,10 @@ def write_manifest(
         "target_tolerance": config.TARGET_TOLERANCE,
         "ramp_start_delta": config.RAMP_START_DELTA,
         "ramp_down_delta": config.RAMP_DOWN_DELTA,
-        "min_slope_per_sample": config.MIN_SLOPE_PER_SAMPLE,
-        "smoothing_window": config.SMOOTHING_WINDOW,
-        "trend_window": config.TREND_WINDOW,
-        "consecutive_samples": config.CONSECUTIVE_SAMPLES,
+        "min_ramp_rate": config.MIN_RAMP_RATE,
+        "smoothing_s": config.SMOOTHING_S,
+        "trend_s": config.TREND_S,
+        "dwell_s": config.DWELL_S,
     }
     _core_write_manifest(
         run_dir,
