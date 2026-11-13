@@ -237,20 +237,22 @@ Validation (`io/conditions.py`): `program_word` must be exactly 8 bits, each seq
 |----------|-------|-------------|
 | `POLL_INTERVAL_S` | `0.01` | Default gap between status polls (~100 Hz); override with `--poll-interval` |
 | `POLL_RECV_TIMEOUT_S` | `0.5` | Reply deadline for the status poller's socket |
-| `SMOOTHING_WINDOW` | `5` | Samples averaged for the smoothed temperature |
-| `TREND_WINDOW` | `4` | Samples averaged for the slope / trend direction |
-| `CONSECUTIVE_SAMPLES` | `3` | Debounce: polls a transition condition must hold before firing |
-| `BASELINE_TOLERANCE` | `0.40` | °C window around baseline counted as "at baseline" |
-| `TARGET_TOLERANCE` | `0.50` | °C window around target counted as "at target" |
-| `RAMP_START_DELTA` | `0.30` | °C rise above baseline that marks ramp-up onset |
-| `RAMP_DOWN_DELTA` | `0.35` | °C fall below peak that marks ramp-down onset |
-| `PRIME_WINDOW_S` | `3.0` | How far ahead of a scheduled event the tighter "primed" thresholds kick in |
+| `SMOOTHING_S` | `0.3` | Seconds of raw readings in the rolling median (the smoothed temperature) |
+| `TREND_S` | `0.3` | Seconds over which the slope is measured |
+| `DWELL_S` | `0.1` | Debounce: seconds a transition condition must hold before firing |
+| `BASELINE_TOLERANCE` | `0.40` | °C from baseline counted as "at baseline" |
+| `TARGET_TOLERANCE` | `0.50` | °C below target counted as "at target" |
+| `RAMP_START_DELTA` | `0.75` | °C a ramp must climb above baseline before it counts as a ramp-up |
+| `RAMP_DOWN_DELTA` | `0.75` | °C below target the temperature must fall before it counts as a ramp-down |
+| `MIN_RAMP_RATE` | `1.0` | °C/s the temperature must be moving for a ramp to count |
 | `RATING_TIMEOUT_S` | `15.0` | Time the participant has to enter a pain rating |
 | `RATING_MIN` / `RATING_MAX` | `0` / `10` | Pain-rating scale bounds (11 integer stops) |
 
 The phase tracker never sees the thermode's command schedule — it infers every transition from the
-measured temperature curve. `config.py` documents the full state machine and the "primed"
-overrides; see also [MMS Networking](mms-networking.md).
+measured temperature curve. A ramp only counts once the temperature is well clear of the plateau
+it left *and* moving at ramp speed, so the overshoot after reaching target, the undershoot after
+returning to baseline, and sensor jitter never read as ramps. `config.py` documents the full state
+machine; see also [MMS Networking](mms-networking.md).
 
 ## Testing
 

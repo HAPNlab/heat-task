@@ -3,10 +3,10 @@
 run_sequences() walks the run's sequence schedule, threading the continuous
 trace-sample numbering between sequences and writing each behavioural record.
 
-run_sequence() drives a single sequence's render loop: it primes the phase
-tracker ahead of scheduled transitions, drains Medoc status samples (writing the
-temperature trace and detecting phase changes), runs the rating slider, holds
-out the sequence's trailing baseline, and returns the behavioural record.
+run_sequence() drives a single sequence's render loop: it drains Medoc status
+samples (writing the temperature trace and detecting phase changes), runs the
+rating slider, holds out the sequence's trailing baseline, and returns the
+behavioural record.
 
 Each sequence owns the baseline period that *follows* its ramp-down (the MMS
 ISI): after the temperature returns to baseline the loop keeps running until
@@ -36,7 +36,7 @@ from heat_task.medoc.cli.formatting import enum_name
 from heat_task.medoc.models import ReturnCode, SystemState, TestState
 from heat_task.task import display
 from heat_task.task.console import SequenceLiveView
-from heat_task.task.phase_tracker import Phase, PhaseTracker, PhaseTrackerConfig
+from heat_task.task.phase_tracker import Phase, PhaseTracker
 from heat_task.task.rating import RatingController
 from heat_task.task.status import StatusPoller
 
@@ -109,19 +109,9 @@ def run_sequence(
         tracker=PhaseTracker(sequence_config),
     )
     rating = RatingController(runtime.stimuli)
-    # The sequence's clock starts now (right after the previous sequence's
-    # trailing baseline); its ramp-up is expected time_before_s later.
-    sequence_start_s = runtime.clock.getTime()
-    ramp_up_primed = False
-    ramp_down_primed = False
 
     while True:
         now_s = runtime.clock.getTime()
-
-        if not ramp_up_primed:
-            ramp_up_primed = _maybe_prime_ramp_up(state, now_s, sequence_start_s)
-        if not ramp_down_primed:
-            ramp_down_primed = _maybe_prime_ramp_down(state, now_s)
 
         trace_sample_count = _drain_samples(runtime, state, rating, trace_sample_count)
         _drain_net_events(runtime)
@@ -144,37 +134,6 @@ def run_sequence(
         ):
             record = _build_record(state, sequence_config, runtime.clock, rating)
             return record, trace_sample_count
-
-
-def _maybe_prime_ramp_up(
-    state: SequenceState, now_s: float, sequence_start_s: float
-) -> bool:
-    """Switch the tracker to twitchy params as the scheduled ramp-up nears.
-
-    The ramp-up is expected the sequence's time_before_s lead-in after the
-    sequence began (0 for every sequence but the first, so they prime as soon as
-    they start)."""
-    if state.tracker.phase != Phase.BASELINE:
-        return False
-    scheduled = sequence_start_s + state.sequence.time_before_s
-    if now_s >= scheduled - config.PRIME_WINDOW_S:
-        state.tracker.prime(PhaseTrackerConfig.primed())
-        return True
-    return False
-
-
-def _maybe_prime_ramp_down(state: SequenceState, now_s: float) -> bool:
-    """Switch the tracker to twitchy params as the scheduled ramp-down nears."""
-    sequence = state.sequence
-    if (
-        state.tracker.phase == Phase.HOLD
-        and sequence.target_hold_duration_s is not None
-        and isinstance(state.hold_onset_s, float)
-        and now_s >= state.hold_onset_s + sequence.target_hold_duration_s - config.PRIME_WINDOW_S
-    ):
-        state.tracker.prime(PhaseTrackerConfig.primed())
-        return True
-    return False
 
 
 def _baseline_elapsed(state: SequenceState, now_s: float) -> bool:
@@ -207,7 +166,7 @@ def _drain_samples(
     for sample in runtime.poller.drain():
         trace_sample_count += 1
         sample_time_s = sample.time_s
-        update = state.tracker.update(sample.temperature)
+        update = state.tracker.update(sample.temperature, sample_time_s)
         state.sample_count += 1
         if runtime.view is not None:
             runtime.view.on_sample(update.smoothed_temperature, update.phase, sample.rtt_ms)
@@ -223,7 +182,7 @@ def _drain_samples(
                 baseline_temp=state.sequence.baseline,
                 target_temp=state.sequence.target_temp,
                 raw_temperature=round(update.raw_temperature, 4),
-                rolling_mean_temperature=round(update.smoothed_temperature, 4),
+                rolling_median_temperature=round(update.smoothed_temperature, 4),
                 phase=update.phase,
                 phase_change_event=update.event or "",
                 device_system_state=enum_name(SystemState, sample.system_state).lower(),

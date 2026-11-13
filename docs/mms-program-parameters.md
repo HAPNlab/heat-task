@@ -115,9 +115,9 @@ The task infers each phase from the **smoothed temperature curve**, so the MMS
 **Destination Rate** / **Return Rate** matter even though they aren't run-file
 fields: they set how fast the curve moves through the detector's thresholds
 (`RAMP_START_DELTA`, `TARGET_TOLERANCE`, `RAMP_DOWN_DELTA`, `BASELINE_TOLERANCE`
-in `config.py`). Very slow rates (shallow slopes) can fall below
-`MIN_SLOPE_PER_SAMPLE` and delay or miss a transition; the example's 4.5 / 3
-°C·s⁻¹ are comfortably steep. Near each scheduled transition the tracker
-*primes* to tighter thresholds (`PRIME_WINDOW_S`), which is why the run file's
-durations must track the MMS program — they tell the tracker *when* to expect the
-ramp it's watching for.
+in `config.py`). A ramp only counts while the curve moves at `MIN_RAMP_RATE`
+(1 °C·s⁻¹) or faster, so both rates must be at least that or the task never sees
+the ramp; the example's 4.5 / 3 °C·s⁻¹ are comfortably steep. The tracker
+doesn't use the run file's timings to find ramps, but `baseline_duration_s` must
+still match the MMS ISI: it sets when the task's sequence ends and it starts
+watching for the next ramp-up.

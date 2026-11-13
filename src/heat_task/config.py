@@ -50,68 +50,66 @@ RECONNECT_BACKOFF_MAX_S = 1.0
 # infers each transition purely from the measured curve. The constants below are
 # the thresholds for those inferences.
 #
-#                                   target_temp
-#                          ┌──────────────────────────┐   ← phase: hold
-#         near_target:     │                          │
-#    |T-target|≤TARGET_TOL │                          │  fall TARGET_TOL/2 below
-#                        ╱ │                          │ │ target, OR RAMP_DOWN_
-#  T(°C)              ╱    │                          │ ▼ DELTA below the peak,
-#    ▲             ╱       │                          │   while trending down
-#    │          ╱  ramp_up │                          │ ╲  ramp_down
-#    │       ╱             │                          │    ╲
-#    │ ─────╱              │                          │      ╲──────────
-#    │ baseline                                                complete
-#    │   ▲                                                       ▲
-#    │   │ rise ≥ RAMP_START_DELTA above baseline,               │ back within
-#    │   │ while trending up                          |T-baseline|≤BASELINE_TOL
+#                         overshoot settles back (ignored)
+#                          ╭╮
+#                          │╰──────────────────────────╮   ← phase: hold
+#    T ≥ target − TARGET_TOL ─▶ hold                   │
+#                        ╱                             │  T ≤ target − RAMP_DOWN_
+#  T(°C)              ╱                                ▼  DELTA, falling fast
+#    ▲             ╱  ramp_up                          ╲   ramp_down
+#    │          ╱                                        ╲
+#    │       ╱                                             ╲
+#    │ ─────╱                                               ╲ ╭──────
+#    │ baseline                                              ╰╯ complete
+#    │   ▲                                           undershoot recovers (ignored)
+#    │   │ T ≥ baseline + RAMP_START_DELTA,                 ▲
+#    │   │ rising fast                    T ≤ baseline + BASELINE_TOL
 #    └───┴───────────────────────────────────────────────────────────────▶ time
 #
 #   STATE       →  NEXT        FIRES WHEN
-#   baseline    →  ramp_up     upward trend AND T ≥ baseline + RAMP_START_DELTA
-#   ramp_up     →  hold        T within TARGET_TOLERANCE of target_temp
-#   hold        →  ramp_down   downward trend AND (T ≤ target − TARGET_TOL/2
-#                                OR T ≤ peak − RAMP_DOWN_DELTA)
-#   ramp_down   →  complete    T within BASELINE_TOLERANCE of baseline
-#                                (or a fresh upward ramp begins → next sequence)
+#   baseline    →  ramp_up     rising AND T ≥ baseline + RAMP_START_DELTA
+#   ramp_up     →  hold        T ≥ target − TARGET_TOLERANCE
+#   ramp_up     →  ramp_down   falling AND T ≤ peak − RAMP_DOWN_DELTA
+#                                (the ramp turned back before reaching target)
+#   hold        →  ramp_down   falling AND T ≤ target − RAMP_DOWN_DELTA
+#   ramp_down   →  complete    T ≤ baseline + BASELINE_TOLERANCE
+#                                (or rising AND T ≥ lowest + RAMP_START_DELTA:
+#                                 the next ramp began before baseline was reached)
 #
-# Three knobs shape *every* transition above by conditioning the raw stream:
+# "rising" / "falling" = the slope is at least MIN_RAMP_RATE °C/s that way.
 #
-#   SMOOTHING_WINDOW   T = mean of the last N raw samples (kills sensor jitter).
-#   TREND_WINDOW       slope = mean of the last N sample-to-sample changes in T.
-#                      "trending up/down" = |slope| ≥ MIN_SLOPE_PER_SAMPLE.
-#   CONSECUTIVE_SAMPLES a transition's condition must hold this many polls in a
-#                      row before it fires (debounce — one stray sample can't
-#                      trip a state change).
+# A thermode at a plateau overshoots target by ~0.25 °C and settles, undershoots
+# baseline by ~0.3 °C and recovers, and jitters by ~±0.05 °C — at well under
+# 0.5 °C/s. Real ramps run at the MMS Destination / Return Rate (3–4.5 °C/s).
+# So each ramp line sits clear of its plateau band (RAMP_DOWN_DELTA must exceed
+# TARGET_TOLERANCE, which the tracker checks) and needs a ramp-speed slope too.
 #
-#                raw ──▶ [ avg of SMOOTHING_WINDOW ] ──▶ smoothed T
+# Three knobs condition the raw stream for every transition above. All three are
+# in seconds of sample time, so the poll rate and the repeated readings MMS
+# returns between its own updates don't change them:
+#
+#   SMOOTHING_S   T = median of the raw readings in the last SMOOTHING_S (kills
+#                 jitter; MMS updates its reading every ~60 ms, so one or two
+#                 bad readings in a row can't move the median).
+#   TREND_S       slope = change in T over the last TREND_S, in °C/s.
+#   DWELL_S       a transition's condition must stay true this long before it
+#                 fires (debounce).
+#
+#                raw ──▶ [ median over SMOOTHING_S ] ──▶ smoothed T
 #                                                          │
-#                         [ avg slope over TREND_WINDOW ] ◀┘
+#                          [ °C/s over TREND_S ] ◀─────────┘
 #                                   │
-#                  condition true for CONSECUTIVE_SAMPLES polls ──▶ transition
+#                  condition true for DWELL_S ──▶ transition
 
-SMOOTHING_WINDOW = 5  # samples averaged for the smoothed temperature
-TREND_WINDOW = 4  # samples averaged for the slope / trend direction
-CONSECUTIVE_SAMPLES = 3  # debounce: polls a condition must hold before firing
+SMOOTHING_S = 0.3  # s of raw readings in the rolling median (~5 MMS updates)
+TREND_S = 0.3  # s over which the slope is measured
+DWELL_S = 0.1  # s a transition's condition must hold before it fires
 
-BASELINE_TOLERANCE = 0.40  # °C window around baseline counted as "at baseline"
-TARGET_TOLERANCE = 0.50  # °C window around target counted as "at target"
-RAMP_START_DELTA = 0.30  # °C rise above baseline that marks ramp-up onset
-RAMP_DOWN_DELTA = 0.35  # °C fall below peak that marks ramp-down onset
-MIN_SLOPE_PER_SAMPLE = 0.03  # °C/sample slope needed to count as trending
-
-# ── Primed overrides ─────────────────────────────────────────────────────────
-# When we *know* a transition is imminent (within PRIME_WINDOW_S of the scheduled
-# event), the tracker swaps to these tighter, twitchier values so it reacts to
-# the real change fast instead of waiting out the conservative debounce. Same
-# meanings as above — just smaller windows and thresholds for higher sensitivity.
-PRIME_WINDOW_S = 3.0  # how far ahead of a scheduled event the prime kicks in
-
-PRIMED_SMOOTHING_WINDOW = 2
-PRIMED_TREND_WINDOW = 2
-PRIMED_CONSECUTIVE_SAMPLES = 1
-PRIMED_RAMP_START_DELTA = 0.15
-PRIMED_RAMP_DOWN_DELTA = 0.20
-PRIMED_MIN_SLOPE_PER_SAMPLE = 0.02
+BASELINE_TOLERANCE = 0.40  # °C from baseline counted as "at baseline" (the pretest uses it too)
+TARGET_TOLERANCE = 0.50  # °C below target counted as "at target"
+RAMP_START_DELTA = 0.75  # °C a ramp must climb (from baseline, or the low point) to count
+RAMP_DOWN_DELTA = 0.75  # °C below target (or the ramp's peak) that marks ramp-down
+MIN_RAMP_RATE = 1.0  # °C/s the slope must reach to count as rising / falling
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pain-rating slider

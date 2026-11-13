@@ -27,6 +27,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   position, and stops at each end. Rolling back after pushing past an end now
   moves the marker straight away.
 
+### Fixed
+
+- The phase tracker took the thermode settling after its overshoot (~0.25 °C
+  above target, 2–4 s into the hold) for a ramp-down, so the rating appeared
+  mid-hold. A small upward wobble then marked the sequence complete, still at
+  target. Now a ramp only counts once the temperature is 0.75 °C clear of the
+  plateau it left *and* moving at 1 °C/s or faster for 0.1 s. Overshoot,
+  undershoot and sensor jitter stay well inside those limits: in a recorded
+  run, holds never dipped more than 0.1 °C below target or fell faster than
+  0.4 °C/s. Smoothing, slope and debounce are now measured in seconds, not
+  polls, and the smoothed temperature is a rolling median, so one or two bad
+  readings can't trip a transition.
+- If a ramp turns back before reaching the target, the tracker goes to
+  ramp-down and the trial still gets its rating, instead of waiting forever for
+  a hold.
+
+### Removed
+
+- The tracker no longer switches to looser thresholds ("priming") ahead of a
+  scheduled transition. Those thresholds stayed on for the whole hold, which
+  is what let the overshoot through. `PRIME_WINDOW_S` and the `PRIMED_*`
+  constants are gone.
+
+### Breaking
+
+- `temperature_trace_*.csv`: `rolling_mean_temperature` →
+  `rolling_median_temperature`.
+- Tracker constants in `config.py` (and `study_params` in the manifest):
+  `SMOOTHING_WINDOW`, `TREND_WINDOW`, `CONSECUTIVE_SAMPLES` and
+  `MIN_SLOPE_PER_SAMPLE` are replaced by `SMOOTHING_S`, `TREND_S`, `DWELL_S`
+  and `MIN_RAMP_RATE`. `RAMP_START_DELTA` and `RAMP_DOWN_DELTA` are now 0.75 °C,
+  and `RAMP_DOWN_DELTA` is measured below the target, not below the peak.
+
 ## v1.0.0-rc.6
 
 ### Added
